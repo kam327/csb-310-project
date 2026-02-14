@@ -75,7 +75,7 @@ export default function MinutesPage() {
         <h1 className="text-2xl font-bold text-white sm:text-3xl">
           Meeting minutes
         </h1>
-        <p className="mt-1 text-slate-400">
+        <p className="mt-1 text-forest-300">
           Upload or paste meeting notes. AI extracts a structured form so you
           can track decisions and action items over time—and pass them to the
           next leadership.
@@ -83,12 +83,12 @@ export default function MinutesPage() {
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
             <Upload className="h-5 w-5 text-gauge-400" />
             Meeting notes
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-forest-400">
             Paste minutes from a doc, email, or type them here.
           </p>
           <textarea
@@ -96,7 +96,7 @@ export default function MinutesPage() {
             onChange={(e) => setRawText(e.target.value)}
             placeholder={`Example:\n\n# General Meeting – Feb 14\n\nAttendees: Alex, Sam, Jordan, Taylor\n\nDecisions:\n- Approved budget for spring event\n- Moved weekly meeting to Tuesdays\n\nAction items:\n- Alex: book room by Friday\n- Sam: send recap email`}
             rows={12}
-            className="mt-4 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+            className="mt-4 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-3 font-mono text-sm text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
           />
           {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
           <button
@@ -119,24 +119,24 @@ export default function MinutesPage() {
           </button>
         </section>
 
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
             <FileText className="h-5 w-5 text-gauge-400" />
             Extracted form
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-forest-400">
             Edit if needed, then save to track over time.
           </p>
 
           {!extracted ? (
-            <p className="mt-6 text-slate-500">
+            <p className="mt-6 text-forest-400">
               Paste notes and click &quot;Extract with AI&quot; to fill this
               form.
             </p>
           ) : (
             <div className="mt-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-slate-400">
+                <label className="block text-sm font-medium text-forest-300">
                   Date
                 </label>
                 <input
@@ -145,11 +145,11 @@ export default function MinutesPage() {
                   onChange={(e) =>
                     handleUpdateExtracted({ date: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400">
+                <label className="block text-sm font-medium text-forest-300">
                   Title
                 </label>
                 <input
@@ -159,11 +159,11 @@ export default function MinutesPage() {
                     handleUpdateExtracted({ title: e.target.value })
                   }
                   placeholder="Meeting title"
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-400">
+                <label className="flex items-center gap-2 text-sm font-medium text-forest-300">
                   <Users className="h-4 w-4" />
                   Attendees (one per line)
                 </label>
@@ -178,11 +178,11 @@ export default function MinutesPage() {
                     })
                   }
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-400">
+                <label className="flex items-center gap-2 text-sm font-medium text-forest-300">
                   <ListChecks className="h-4 w-4" />
                   Key decisions
                 </label>
@@ -197,11 +197,11 @@ export default function MinutesPage() {
                     })
                   }
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 />
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-400">
+                <label className="flex items-center gap-2 text-sm font-medium text-forest-300">
                   <CheckSquare className="h-4 w-4" />
                   Action items (one per line: task or &quot;task – assignee&quot;)
                 </label>
@@ -228,12 +228,12 @@ export default function MinutesPage() {
                     });
                   }}
                   rows={4}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 />
               </div>
               {extracted.nextMeeting !== undefined && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-400">
+                  <label className="block text-sm font-medium text-forest-300">
                     Next meeting
                   </label>
                   <input
@@ -243,7 +243,7 @@ export default function MinutesPage() {
                       handleUpdateExtracted({ nextMeeting: e.target.value || undefined })
                     }
                     placeholder="e.g. Feb 21"
-                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                   />
                 </div>
               )}
@@ -261,7 +261,7 @@ export default function MinutesPage() {
       </div>
 
       {allMinutes.length > 0 && (
-        <section className="mt-10 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <section className="mt-10 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="text-lg font-semibold text-white">
             Past minutes ({allMinutes.length})
           </h2>
@@ -269,11 +269,11 @@ export default function MinutesPage() {
             {allMinutes.slice(0, 10).map((m) => (
               <li
                 key={m.id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/50 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-forest-800 bg-forest-800/50 px-4 py-3"
               >
                 <div>
                   <p className="font-medium text-white">{m.extracted.title}</p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-forest-400">
                     {new Date(m.extracted.date).toLocaleDateString("en-US")} ·{" "}
                     {m.extracted.attendees.length} attendees ·{" "}
                     {m.extracted.actionItems.length} action items

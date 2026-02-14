@@ -42,7 +42,7 @@ export default function CheckInPage() {
   if (!event) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4">
-        <p className="text-slate-500">Event not found.</p>
+        <p className="text-forest-400">Event not found.</p>
       </div>
     );
   }
@@ -54,7 +54,7 @@ export default function CheckInPage() {
           <CheckCircle className="h-10 w-10" />
         </div>
         <h1 className="mt-6 text-xl font-bold text-white">You&apos;re checked in!</h1>
-        <p className="mt-2 text-slate-400">
+        <p className="mt-2 text-forest-300">
           Thanks for attending <span className="font-medium text-white">{event.name}</span>.
         </p>
       </div>
@@ -63,10 +63,10 @@ export default function CheckInPage() {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-md flex-col justify-center px-4 py-12">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+      <div className="rounded-2xl border border-forest-800 bg-forest-900/90 p-6 shadow-xl">
         <h1 className="text-xl font-bold text-white">Check in</h1>
-        <p className="mt-1 text-slate-400">{event.name}</p>
-        <p className="text-sm text-slate-500">
+        <p className="mt-1 text-forest-300">{event.name}</p>
+        <p className="text-sm text-forest-400">
           {new Date(event.date).toLocaleDateString("en-US", {
             weekday: "short",
             month: "short",
@@ -77,7 +77,7 @@ export default function CheckInPage() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="checkin-name" className="block text-sm font-medium text-slate-300">
+            <label htmlFor="checkin-name" className="block text-sm font-medium text-forest-300">
               Your name <span className="text-red-400">*</span>
             </label>
             <input
@@ -87,11 +87,11 @@ export default function CheckInPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="First and last name"
               autoComplete="name"
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+              className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-3 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
             />
           </div>
           <div>
-            <label htmlFor="checkin-email" className="block text-sm font-medium text-slate-300">
+            <label htmlFor="checkin-email" className="block text-sm font-medium text-forest-300">
               Email (optional)
             </label>
             <input
@@ -101,7 +101,7 @@ export default function CheckInPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@university.edu"
               autoComplete="email"
-              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+              className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-3 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
             />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}

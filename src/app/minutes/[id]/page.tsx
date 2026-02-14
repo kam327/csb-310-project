@@ -19,7 +19,7 @@ export default function MinutesDetailPage() {
   if (!minutes) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-slate-500">Meeting minutes not found.</p>
+        <p className="text-forest-400">Meeting minutes not found.</p>
         <Link
           href="/minutes"
           className="mt-4 inline-block text-gauge-400 hover:text-gauge-300"
@@ -36,15 +36,15 @@ export default function MinutesDetailPage() {
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
       <Link
         href="/minutes"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white"
+        className="inline-flex items-center gap-2 text-sm font-medium text-forest-300 hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to minutes
       </Link>
 
-      <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+      <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
         <h1 className="text-2xl font-bold text-white">{e.title}</h1>
-        <p className="mt-2 flex items-center gap-2 text-slate-500">
+        <p className="mt-2 flex items-center gap-2 text-forest-400">
           <Calendar className="h-4 w-4" />
           {new Date(e.date).toLocaleDateString("en-US", {
             weekday: "long",
@@ -61,12 +61,12 @@ export default function MinutesDetailPage() {
           </h2>
           <ul className="mt-2 flex flex-wrap gap-2">
             {e.attendees.length === 0 ? (
-              <li className="text-slate-500">None listed</li>
+              <li className="text-forest-400">None listed</li>
             ) : (
               e.attendees.map((name) => (
                 <li
                   key={name}
-                  className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-300"
+                  className="rounded-lg border border-forest-700 bg-forest-800/80 px-3 py-1.5 text-sm text-forest-300"
                 >
                   {name}
                 </li>
@@ -82,12 +82,12 @@ export default function MinutesDetailPage() {
           </h2>
           <ul className="mt-2 space-y-2">
             {e.keyDecisions.length === 0 ? (
-              <li className="text-slate-500">None listed</li>
+              <li className="text-forest-400">None listed</li>
             ) : (
               e.keyDecisions.map((d, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-slate-800 bg-slate-800/50 px-4 py-2 text-slate-300"
+                  className="rounded-lg border border-forest-800 bg-forest-800/80 px-4 py-2 text-forest-300"
                 >
                   {d}
                 </li>
@@ -103,16 +103,16 @@ export default function MinutesDetailPage() {
           </h2>
           <ul className="mt-2 space-y-2">
             {e.actionItems.length === 0 ? (
-              <li className="text-slate-500">None listed</li>
+              <li className="text-forest-400">None listed</li>
             ) : (
               e.actionItems.map((a, i) => (
                 <li
                   key={i}
-                  className="rounded-lg border border-slate-800 bg-slate-800/50 px-4 py-2 text-slate-300"
+                  className="rounded-lg border border-forest-800 bg-forest-800/80 px-4 py-2 text-forest-300"
                 >
                   <span>{a.task}</span>
                   {(a.assignee || a.due) && (
-                    <span className="ml-2 text-sm text-slate-500">
+                    <span className="ml-2 text-sm text-forest-400">
                       {[a.assignee, a.due].filter(Boolean).join(" · ")}
                     </span>
                   )}
@@ -125,18 +125,18 @@ export default function MinutesDetailPage() {
         {e.nextMeeting && (
           <section className="mt-8">
             <h2 className="text-lg font-semibold text-white">Next meeting</h2>
-            <p className="mt-2 text-slate-400">{e.nextMeeting}</p>
+            <p className="mt-2 text-forest-300">{e.nextMeeting}</p>
           </section>
         )}
 
         {e.notes && (
           <section className="mt-8">
             <h2 className="text-lg font-semibold text-white">Notes</h2>
-            <p className="mt-2 whitespace-pre-wrap text-slate-400">{e.notes}</p>
+            <p className="mt-2 whitespace-pre-wrap text-forest-300">{e.notes}</p>
           </section>
         )}
 
-        <p className="mt-8 text-xs text-slate-600">
+        <p className="mt-8 text-xs text-forest-400">
           Saved{" "}
           {new Date(minutes.createdAt).toLocaleString("en-US")}
         </p>

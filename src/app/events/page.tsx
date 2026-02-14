@@ -48,7 +48,7 @@ export default function EventsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white sm:text-3xl">Events</h1>
-          <p className="mt-1 text-slate-400">
+          <p className="mt-1 text-forest-300">
             Create events and use QR check-in to track attendance
           </p>
         </div>
@@ -63,11 +63,11 @@ export default function EventsPage() {
       </div>
 
       {showForm && (
-        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="mt-8 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="text-lg font-semibold text-white">Create event</h2>
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label htmlFor="event-name" className="block text-sm font-medium text-slate-300">
+              <label htmlFor="event-name" className="block text-sm font-medium text-forest-300">
                 Event name
               </label>
               <input
@@ -76,12 +76,12 @@ export default function EventsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. General Meeting – Fall 2025"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 required
               />
             </div>
             <div>
-              <label htmlFor="event-date" className="block text-sm font-medium text-slate-300">
+              <label htmlFor="event-date" className="block text-sm font-medium text-forest-300">
                 Date
               </label>
               <input
@@ -89,12 +89,12 @@ export default function EventsPage() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 required
               />
             </div>
             <div>
-              <label htmlFor="event-desc" className="block text-sm font-medium text-slate-300">
+              <label htmlFor="event-desc" className="block text-sm font-medium text-forest-300">
                 Description (optional)
               </label>
               <textarea
@@ -103,7 +103,7 @@ export default function EventsPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of the event"
                 rows={2}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white placeholder-slate-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
               />
             </div>
             <div className="flex gap-3">
@@ -116,7 +116,7 @@ export default function EventsPage() {
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="rounded-lg border border-slate-600 px-4 py-2.5 font-medium text-slate-300 transition hover:bg-slate-800"
+                className="rounded-lg border border-forest-600 px-4 py-2.5 font-medium text-forest-300 transition hover:bg-forest-800"
               >
                 Cancel
               </button>
@@ -141,9 +141,9 @@ export default function EventsPage() {
           Past events {past.length > 0 && `(${past.length})`}
         </h2>
         {past.length === 0 && events.length === 0 ? (
-          <p className="mt-4 text-slate-500">No events yet. Create one to get started.</p>
+          <p className="mt-4 text-forest-400">No events yet. Create one to get started.</p>
         ) : past.length === 0 ? (
-          <p className="mt-4 text-slate-500">No past events.</p>
+          <p className="mt-4 text-forest-400">No past events.</p>
         ) : (
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {past.map((e) => (
@@ -160,11 +160,11 @@ function EventCard({ event, past }: { event: Event; past?: boolean }) {
   const checkInCount = store.checkIns.getByEventId(event.id).length;
 
   return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 transition hover:border-slate-700">
+    <li className="rounded-xl border border-forest-800 bg-forest-900/80 p-5 transition hover:border-forest-700">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold text-white">{event.name}</h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-forest-400">
             {new Date(event.date).toLocaleDateString("en-US", {
               weekday: "short",
               month: "short",
@@ -173,14 +173,14 @@ function EventCard({ event, past }: { event: Event; past?: boolean }) {
             })}
           </p>
           {event.description && (
-            <p className="mt-2 text-sm text-slate-400 line-clamp-2">
+            <p className="mt-2 text-sm text-forest-300 line-clamp-2">
               {event.description}
             </p>
           )}
         </div>
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <span className="flex items-center gap-1.5 text-sm text-slate-500">
+        <span className="flex items-center gap-1.5 text-sm text-forest-400">
           <Users className="h-4 w-4" />
           {checkInCount} check-in{checkInCount !== 1 ? "s" : ""}
         </span>

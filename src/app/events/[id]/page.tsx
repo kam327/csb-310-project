@@ -81,7 +81,7 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-slate-500">Event not found.</p>
+        <p className="text-forest-400">Event not found.</p>
         <Link href="/events" className="mt-4 inline-block text-gauge-400 hover:text-gauge-300">
           Back to events
         </Link>
@@ -93,16 +93,16 @@ export default function EventDetailPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <Link
         href="/events"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white"
+        className="inline-flex items-center gap-2 text-sm font-medium text-forest-300 hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to events
       </Link>
 
       <div className="mt-6 flex flex-col gap-8 lg:flex-row lg:items-start">
-        <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 lg:min-w-[280px]">
+        <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6 lg:min-w-[280px]">
           <h2 className="text-lg font-semibold text-white">QR code check-in</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-forest-400">
             Members scan this to check in. Or share the link below.
           </p>
 
@@ -122,7 +122,7 @@ export default function EventDetailPage() {
                     value={baseUrlInput}
                     onChange={(e) => setBaseUrlInput(e.target.value)}
                     placeholder="http://192.168.1.5:3000"
-                    className="flex-1 rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-sm text-white placeholder-slate-500"
+                    className="flex-1 rounded border border-forest-600 bg-forest-800 px-3 py-1.5 text-sm text-white placeholder-forest-400"
                   />
                   <button
                     type="button"
@@ -141,12 +141,12 @@ export default function EventDetailPage() {
               <QRCodeSVG value={checkInUrl} size={200} level="M" />
             </div>
           ) : (
-            <div className="mt-4 flex h-[232px] items-center justify-center rounded-lg bg-slate-800 text-slate-500">
+            <div className="mt-4 flex h-[232px] items-center justify-center rounded-lg bg-forest-800 text-forest-400">
               Set base URL above to generate QR
             </div>
           )}
           {baseUrlOverride && (
-            <p className="mt-2 text-center text-xs text-slate-500">
+            <p className="mt-2 text-center text-xs text-forest-400">
               QR points to: {baseUrlOverride}
               <button
                 type="button"
@@ -165,7 +165,7 @@ export default function EventDetailPage() {
             <button
               type="button"
               onClick={copyCheckInLink}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-forest-600 bg-forest-800 px-4 py-2.5 text-sm font-medium text-forest-300 transition hover:bg-forest-700"
             >
               <Copy className="h-4 w-4" />
               {copied ? "Copied!" : "Copy check-in link"}
@@ -182,9 +182,9 @@ export default function EventDetailPage() {
           </div>
         </section>
 
-        <section className="flex-1 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <section className="flex-1 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="text-lg font-semibold text-white">{event.name}</h2>
-          <p className="mt-1 text-slate-500">
+          <p className="mt-1 text-forest-400">
             {new Date(event.date).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -193,10 +193,10 @@ export default function EventDetailPage() {
             })}
           </p>
           {event.description && (
-            <p className="mt-3 text-slate-400">{event.description}</p>
+            <p className="mt-3 text-forest-300">{event.description}</p>
           )}
 
-          <div className="mt-6 flex items-center gap-2 text-slate-400">
+          <div className="mt-6 flex items-center gap-2 text-forest-300">
             <Users className="h-5 w-5" />
             <span className="font-medium text-white">
               {checkIns.length} check-in{checkIns.length !== 1 ? "s" : ""}
@@ -214,10 +214,10 @@ export default function EventDetailPage() {
                 .map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/50 px-4 py-3"
+                    className="flex items-center justify-between rounded-lg border border-forest-800 bg-forest-800/50 px-4 py-3"
                   >
                     <span className="font-medium text-white">{c.memberName}</span>
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-forest-400">
                       {new Date(c.checkedInAt).toLocaleTimeString("en-US", {
                         hour: "numeric",
                         minute: "2-digit",
@@ -227,7 +227,7 @@ export default function EventDetailPage() {
                 ))}
             </ul>
           ) : (
-            <p className="mt-4 text-slate-500">
+            <p className="mt-4 text-forest-400">
               No check-ins yet. Share the QR code or link at your event.
             </p>
           )}

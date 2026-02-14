@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased font-sans bg-slate-950 text-slate-200">
+      <body className="antialiased font-sans bg-forest-950 text-white">
         <Nav />
         <main className="min-h-[calc(100vh-4rem)]">{children}</main>
       </body>

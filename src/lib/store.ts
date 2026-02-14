@@ -1,6 +1,13 @@
 "use client";
 
 import type { Event, CheckIn, Member, SavedMinutes } from "@/types";
+import {
+  getDemoMode,
+  demoEvents,
+  demoCheckIns,
+  demoMembers,
+  demoMinutes,
+} from "./demo-data";
 
 const EVENTS_KEY = "club-continuity-events";
 const CHECK_INS_KEY = "club-continuity-checkins";
@@ -26,15 +33,30 @@ function save<T>(key: string, data: T): void {
   }
 }
 
+function events(): Event[] {
+  return getDemoMode() ? demoEvents : load(EVENTS_KEY, []);
+}
+function checkIns(): CheckIn[] {
+  return getDemoMode() ? demoCheckIns : load(CHECK_INS_KEY, []);
+}
+function members(): Member[] {
+  return getDemoMode() ? demoMembers : load(MEMBERS_KEY, []);
+}
+function minutes(): SavedMinutes[] {
+  return getDemoMode() ? demoMinutes : load(MINUTES_KEY, []);
+}
+
 export const store = {
   events: {
-    getAll: (): Event[] => load(EVENTS_KEY, []),
+    getAll: (): Event[] => events(),
     add: (event: Event) => {
+      if (getDemoMode()) return;
       const all = load<Event[]>(EVENTS_KEY, []);
       all.push(event);
       save(EVENTS_KEY, all);
     },
     update: (id: string, updates: Partial<Event>) => {
+      if (getDemoMode()) return;
       const all = load<Event[]>(EVENTS_KEY, []);
       const i = all.findIndex((e) => e.id === id);
       if (i >= 0) {
@@ -43,17 +65,18 @@ export const store = {
       }
     },
     remove: (id: string) => {
+      if (getDemoMode()) return;
       save(EVENTS_KEY, load<Event[]>(EVENTS_KEY, []).filter((e) => e.id !== id));
     },
-    getById: (id: string): Event | undefined =>
-      load<Event[]>(EVENTS_KEY, []).find((e) => e.id === id),
+    getById: (id: string): Event | undefined => events().find((e) => e.id === id),
   },
 
   checkIns: {
-    getAll: (): CheckIn[] => load(CHECK_INS_KEY, []),
+    getAll: (): CheckIn[] => checkIns(),
     getByEventId: (eventId: string): CheckIn[] =>
-      load<CheckIn[]>(CHECK_INS_KEY, []).filter((c) => c.eventId === eventId),
+      checkIns().filter((c) => c.eventId === eventId),
     add: (checkIn: CheckIn) => {
+      if (getDemoMode()) return;
       const all = load<CheckIn[]>(CHECK_INS_KEY, []);
       all.push(checkIn);
       save(CHECK_INS_KEY, all);
@@ -61,13 +84,15 @@ export const store = {
   },
 
   members: {
-    getAll: (): Member[] => load(MEMBERS_KEY, []),
+    getAll: (): Member[] => members(),
     add: (member: Member) => {
+      if (getDemoMode()) return;
       const all = load<Member[]>(MEMBERS_KEY, []);
       if (!all.some((m) => m.id === member.id)) all.push(member);
       save(MEMBERS_KEY, all);
     },
     update: (id: string, updates: Partial<Member>) => {
+      if (getDemoMode()) return;
       const all = load<Member[]>(MEMBERS_KEY, []);
       const i = all.findIndex((m) => m.id === id);
       if (i >= 0) {
@@ -76,6 +101,14 @@ export const store = {
       }
     },
     getOrCreateFromCheckIn: (name: string, email?: string): Member => {
+      if (getDemoMode()) {
+        const m = members().find(
+          (x) =>
+            x.name.toLowerCase() === name.toLowerCase() ||
+            (email && x.email?.toLowerCase() === email.toLowerCase())
+        );
+        return m ?? { id: "demo-temp", name, email, firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString() };
+      }
       const all = load<Member[]>(MEMBERS_KEY, []);
       const now = new Date().toISOString();
       const existing = all.find(
@@ -102,13 +135,15 @@ export const store = {
   },
 
   minutes: {
-    getAll: (): SavedMinutes[] => load(MINUTES_KEY, []),
-    add: (minutes: SavedMinutes) => {
+    getAll: (): SavedMinutes[] => minutes(),
+    add: (minutesData: SavedMinutes) => {
+      if (getDemoMode()) return;
       const all = load<SavedMinutes[]>(MINUTES_KEY, []);
-      all.unshift(minutes);
+      all.unshift(minutesData);
       save(MINUTES_KEY, all);
     },
     update: (id: string, updates: Partial<SavedMinutes>) => {
+      if (getDemoMode()) return;
       const all = load<SavedMinutes[]>(MINUTES_KEY, []);
       const i = all.findIndex((m) => m.id === id);
       if (i >= 0) {
@@ -117,7 +152,7 @@ export const store = {
       }
     },
     getById: (id: string): SavedMinutes | undefined =>
-      load<SavedMinutes[]>(MINUTES_KEY, []).find((m) => m.id === id),
+      minutes().find((m) => m.id === id),
   },
 };
 
