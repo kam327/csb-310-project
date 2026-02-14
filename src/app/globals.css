@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0b1120;
+  --foreground: #e2e8f0;
+  --card: #172033;
+  --border: #334155;
+  --accent: #22c55e;
+  --butter: #facc15;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Smooth scroll and focus styles */
+* {
+  scroll-behavior: smooth;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
