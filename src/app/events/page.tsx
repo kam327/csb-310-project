@@ -16,7 +16,7 @@ export default function EventsPage() {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-   const [endTime, setEndTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export default function EventsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !date || !time || !endTime) return;
+    if (!name.trim() || !date) return;
     if (!user || !profile) {
       setError("You need to be signed in to create events.");
       return;
@@ -52,15 +52,27 @@ export default function EventsPage() {
     setSaving(true);
     setError(null);
 
-    // Simple guard: ensure end time is after start time (same day)
-    const [startHour, startMinute] = time.split(":").map(Number);
-    const [endHour, endMinute] = endTime.split(":").map(Number);
-    const startMinutes = startHour * 60 + startMinute;
-    const endMinutes = endHour * 60 + endMinute;
-    if (endMinutes <= startMinutes) {
+    const hasStart = Boolean(time);
+    const hasEnd = Boolean(endTime);
+    if (hasStart !== hasEnd) {
       setSaving(false);
-      setError("End time must be after the start time.");
+      setError("Please provide both a start and end time, or leave both blank.");
       return;
+    }
+
+    const hasTimes = hasStart && hasEnd;
+
+    if (hasTimes) {
+      // Simple guard: ensure end time is after start time (same day)
+      const [startHour, startMinute] = time.split(":").map(Number);
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+      if (endMinutes <= startMinutes) {
+        setSaving(false);
+        setError("End time must be after the start time.");
+        return;
+      }
     }
 
     const qrToken = crypto.randomUUID();
@@ -73,8 +85,8 @@ export default function EventsPage() {
           title: name.trim(),
           description: description.trim() || null,
           event_date: date,
-          event_time: time,
-          event_end_time: endTime,
+          event_time: hasTimes ? time : null,
+          event_end_time: hasTimes ? endTime : null,
           location: null,
           qr_token: qrToken,
         })

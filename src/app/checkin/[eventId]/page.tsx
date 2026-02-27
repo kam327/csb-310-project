@@ -17,10 +17,9 @@ export default function CheckInPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const getEventStartEnd = (): { start: Date; end: Date } | null => {
-    if (!event) return null;
-    const start = event.time ? new Date(`${event.date}T${event.time}`) : new Date(event.date);
-    const endBase = event.endTime ?? event.time;
-    const end = endBase ? new Date(`${event.date}T${endBase}`) : new Date(event.date);
+    if (!event || !event.time || !event.endTime) return null;
+    const start = new Date(`${event.date}T${event.time}`);
+    const end = new Date(`${event.date}T${event.endTime}`);
     return { start, end };
   };
 
