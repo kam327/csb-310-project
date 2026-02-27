@@ -42,11 +42,20 @@ export default function CheckInPage() {
     });
     setSubmitting(false);
     if (err) {
-      const message =
-        err.message &&
-        err.message.includes('null value in column "member_email"')
-          ? "Please enter your email address to check in."
-          : "We couldn't complete your check-in. Please try again in a moment.";
+      const supabaseError = err as Error & { code?: string };
+
+      let message: string;
+      if (supabaseError.code === "23505") {
+        // Postgres unique violation – likely same attendee for this event
+        message = "It looks like you've already checked in for this event.";
+      } else if (
+        supabaseError.message &&
+        supabaseError.message.includes('null value in column "member_email"')
+      ) {
+        message = "Please enter your email address to check in.";
+      } else {
+        message = "We couldn't complete your check-in. Please try again in a moment.";
+      }
       setError(message);
       return;
     }
