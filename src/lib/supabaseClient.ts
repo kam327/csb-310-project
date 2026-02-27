@@ -13,25 +13,38 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
  * Lock API and can trigger "Lock broken by another request with the 'steal' option"
  * when multiple tabs or concurrent getSession/onAuthStateChange run. This lock
  * runs one operation at a time with no steal, avoiding that AbortError.
+ *
+ * The signature matches Supabase's experimental `auth.lock` type, which is a
+ * generic function `<R>(name, acquireTimeout, fn) => Promise<R>`.
  */
-function createSerializingLock(): (
+function createSerializingLock(): <R>(
   name: string,
   acquireTimeout: number,
-  fn: (lock: { name: string } | null) => Promise<unknown>
-) => Promise<unknown> {
-  let tail: Promise<unknown> = Promise.resolve();
-  return function serializingLock(_name, _acquireTimeout, fn) {
+  fn: (lock: { name: string } | null) => Promise<R>
+) => Promise<R> {
+  let tail: Promise<void> = Promise.resolve();
+
+  return async function serializingLock<R>(
+    _name: string,
+    _acquireTimeout: number,
+    fn: (lock: { name: string } | null) => Promise<R>
+  ): Promise<R> {
+    let resolve!: () => void;
     const prev = tail;
-    let resolve: () => void;
+
     tail = new Promise<void>((r) => {
       resolve = r;
     });
-    return prev.then(
-      () => fn({ name: _name }),
-      () => fn({ name: _name })
-    ).finally(() => {
-      resolve!();
-    });
+
+    try {
+      // Wait for any previous call in the chain to finish
+      await prev;
+      // Run the provided function and return its result
+      return await fn({ name: _name });
+    } finally {
+      // Allow the next queued call to proceed
+      resolve();
+    }
   };
 }
 

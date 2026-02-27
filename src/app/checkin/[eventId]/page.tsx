@@ -13,7 +13,7 @@ export default function CheckInPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -22,19 +22,32 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    if (!name.trim()) {
+    setError(null);
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName) {
       setError("Please enter your name.");
+      return;
+    }
+
+    if (!trimmedEmail) {
+      setError("Please enter your email address.");
       return;
     }
     setSubmitting(true);
     const { error: err } = await insertCheckIn(eventId, {
-      memberName: name.trim(),
-      memberEmail: email.trim() || undefined,
+      memberName: trimmedName,
+      memberEmail: trimmedEmail,
     });
     setSubmitting(false);
     if (err) {
-      setError(err.message ?? "Check-in failed. Please try again.");
+      const message =
+        err.message &&
+        err.message.includes('null value in column "member_email"')
+          ? "Please enter your email address to check in."
+          : "We couldn't complete your check-in. Please try again in a moment.";
+      setError(message);
       return;
     }
     setSubmitted(true);
@@ -93,7 +106,7 @@ export default function CheckInPage() {
           </div>
           <div>
             <label htmlFor="checkin-email" className="block text-sm font-medium text-forest-300">
-              Email (optional)
+              Email <span className="text-red-400">*</span>
             </label>
             <input
               id="checkin-email"

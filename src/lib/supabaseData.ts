@@ -141,12 +141,12 @@ export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
 /** Insert a check-in (public check-in page; anon or auth). */
 export async function insertCheckIn(
   eventId: string,
-  params: { memberName: string; memberEmail?: string }
+  params: { memberName: string; memberEmail: string }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase.from("attendance").insert({
     event_id: eventId,
-    member_email: params.memberEmail?.trim() || null,
-    member_name: params.memberName.trim() || null,
+    member_email: params.memberEmail.trim(),
+    member_name: params.memberName.trim(),
   });
   if (error) {
     console.error("[Gauge] insertCheckIn", error);
