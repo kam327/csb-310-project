@@ -9,15 +9,21 @@ function toEvent(row: {
   title: string | null;
   description: string | null;
   event_date: string | null;
+  event_time: string | null;
+  event_end_time: string | null;
   created_at: string | null;
 }): Event {
   const date = row.event_date
     ? String(row.event_date).slice(0, 10)
     : new Date().toISOString().slice(0, 10);
+  const time = row.event_time ? String(row.event_time).slice(0, 5) : undefined;
+  const endTime = row.event_end_time ? String(row.event_end_time).slice(0, 5) : undefined;
   return {
     id: row.id,
     name: row.title ?? "",
     date,
+    time,
+    endTime,
     description: row.description ?? undefined,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
@@ -45,7 +51,7 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
   if (!clubId) return [];
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, created_at")
+    .select("id, title, description, event_date, event_time, event_end_time, created_at")
     .eq("club_id", clubId)
     .order("event_date", { ascending: false });
   if (error) {
@@ -59,7 +65,7 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
 export async function fetchEventById(eventId: string): Promise<Event | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, created_at")
+    .select("id, title, description, event_date, event_time, event_end_time, created_at")
     .eq("id", eventId)
     .single();
   if (error || !data) return null;

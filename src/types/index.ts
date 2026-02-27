@@ -1,7 +1,9 @@
 export interface Event {
   id: string;
   name: string;
-  date: string; // ISO date
+  date: string; // ISO date (YYYY-MM-DD)
+  time?: string; // optional start time, "HH:MM" (24h) local
+  endTime?: string; // optional end time, "HH:MM" (24h) local
   description?: string;
   createdAt: string;
 }

@@ -15,6 +15,8 @@ export default function EventsPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,13 +44,24 @@ export default function EventsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !date) return;
+    if (!name.trim() || !date || !time || !endTime) return;
     if (!user || !profile) {
       setError("You need to be signed in to create events.");
       return;
     }
     setSaving(true);
     setError(null);
+
+    // Simple guard: ensure end time is after start time (same day)
+    const [startHour, startMinute] = time.split(":").map(Number);
+    const [endHour, endMinute] = endTime.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+    if (endMinutes <= startMinutes) {
+      setSaving(false);
+      setError("End time must be after the start time.");
+      return;
+    }
 
     const qrToken = crypto.randomUUID();
 
@@ -60,10 +73,12 @@ export default function EventsPage() {
           title: name.trim(),
           description: description.trim() || null,
           event_date: date,
+          event_time: time,
+          event_end_time: endTime,
           location: null,
           qr_token: qrToken,
         })
-        .select("id, title, description, event_date, created_at")
+        .select("id, title, description, event_date, event_time, event_end_time, created_at")
         .single();
 
       if (error || !data) {
@@ -72,6 +87,8 @@ export default function EventsPage() {
         await refreshEvents();
         setName("");
         setDate("");
+        setTime("");
+        setEndTime("");
         setDescription("");
         setShowForm(false);
       }
@@ -83,12 +100,16 @@ export default function EventsPage() {
   };
 
   const now = new Date();
+  const eventDateTime = (e: Event) => {
+    const timeStr = e.time ?? "00:00";
+    return new Date(`${e.date}T${timeStr}`);
+  };
   const upcoming = events
-    .filter((e) => new Date(e.date) >= now)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter((e) => eventDateTime(e) >= now)
+    .sort((a, b) => eventDateTime(a).getTime() - eventDateTime(b).getTime());
   const past = events
-    .filter((e) => new Date(e.date) < now)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .filter((e) => eventDateTime(e) < now)
+    .sort((a, b) => eventDateTime(b).getTime() - eventDateTime(a).getTime());
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -188,6 +209,32 @@ export default function EventsPage() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="event-time" className="block text-sm font-medium text-forest-300">
+                Start time
+              </label>
+              <input
+                id="event-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="event-end-time" className="block text-sm font-medium text-forest-300">
+                End time
+              </label>
+              <input
+                id="event-end-time"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 required
               />

@@ -16,6 +16,22 @@ export default function CheckInPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const getEventStartEnd = (): { start: Date; end: Date } | null => {
+    if (!event) return null;
+    const start = event.time ? new Date(`${event.date}T${event.time}`) : new Date(event.date);
+    const endBase = event.endTime ?? event.time;
+    const end = endBase ? new Date(`${event.date}T${endBase}`) : new Date(event.date);
+    return { start, end };
+  };
+
+  const getCheckInWindow = () => {
+    const range = getEventStartEnd();
+    if (!range) return null;
+    const start = new Date(range.start.getTime() - 30 * 60 * 1000);
+    const end = new Date(range.end.getTime() + 30 * 60 * 1000);
+    return { start, end };
+  };
+
   useEffect(() => {
     fetchEventById(eventId).then(setEvent);
   }, [eventId]);
@@ -33,6 +49,26 @@ export default function CheckInPage() {
 
     if (!trimmedEmail) {
       setError("Please enter your email address.");
+      return;
+    }
+
+    const window = getCheckInWindow();
+    const now = new Date();
+    if (window && (now < window.start || now > window.end)) {
+      const formatTime = (d: Date) =>
+        d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const formatDate = (d: Date) =>
+        d.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      setError(
+        `Check-in for this event is only open between ${formatTime(
+          window.start
+        )} and ${formatTime(window.end)} on ${formatDate(window.start)}.`
+      );
       return;
     }
     setSubmitting(true);
@@ -96,6 +132,25 @@ export default function CheckInPage() {
             day: "numeric",
             year: "numeric",
           })}
+          {event.time && (
+            <>
+              {" "}
+              ·{" "}
+              {new Date(`${event.date}T${event.time}`).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              {event.endTime && (
+                <>
+                  {" – "}
+                  {new Date(`${event.date}T${event.endTime}`).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </>
+              )}
+            </>
+          )}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -127,6 +182,32 @@ export default function CheckInPage() {
               className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-3 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
             />
           </div>
+          {(() => {
+            const window = getCheckInWindow();
+            const now = new Date();
+            if (!window) return null;
+            const formatTime = (d: Date) =>
+              d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+            let statusText: string | null = null;
+            if (now < window.start) {
+              statusText = `Check-in will open at ${formatTime(
+                window.start
+              )} and close at ${formatTime(window.end)}.`;
+            } else if (now > window.end) {
+              statusText = `Check-in for this event is closed. It was available from ${formatTime(
+                window.start
+              )} to ${formatTime(window.end)}.`;
+            } else {
+              statusText = `Check-in is open until ${formatTime(window.end)}.`;
+            }
+
+            return (
+              <p className="text-sm text-forest-400">
+                {statusText}
+              </p>
+            );
+          })()}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"

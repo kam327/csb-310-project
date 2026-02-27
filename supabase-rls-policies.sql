@@ -52,6 +52,10 @@ UPDATE public.clubs
 SET join_code = COALESCE(join_code, upper(substr(md5(random()::text), 1, 8)))
 WHERE join_code IS NULL;
 
+-- Optional: store a start/end time for each event (local time-of-day)
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_time time without time zone;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_end_time time without time zone;
+
 -- ========== CLUBS ==========
 DROP POLICY IF EXISTS "select clubs (authenticated)" ON public.clubs;
 CREATE POLICY "select clubs (authenticated)"

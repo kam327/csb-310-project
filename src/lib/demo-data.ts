@@ -27,26 +27,76 @@ function weeksAgo(weeks: number): string {
 }
 
 export const demoEvents: Event[] = (() => {
-  const items: { name: string; weeksBack: number; description?: string }[] = [
-    { name: "General Meeting – Fall Kickoff", weeksBack: 11, description: "Welcome back, semester goals, and introductions." },
-    { name: "Workshop: Resume & LinkedIn", weeksBack: 10, description: "One-on-one resume reviews with industry guests." },
-    { name: "Guest Speaker: Product at Stripe", weeksBack: 9 },
-    { name: "Social: Trivia Night", weeksBack: 9, description: "Team trivia and pizza." },
-    { name: "General Meeting – October", weeksBack: 8 },
-    { name: "Career Panel: Engineering Paths", weeksBack: 7, description: "Panel with 4 engineers from different companies." },
-    { name: "Hackathon Kickoff", weeksBack: 6 },
-    { name: "Workshop: System Design", weeksBack: 5 },
-    { name: "General Meeting – November", weeksBack: 5 },
-    { name: "Alumni Networking Happy Hour", weeksBack: 4, description: "Casual networking with recent grads." },
-    { name: "Mock Interviews", weeksBack: 3, description: "Technical and behavioral practice." },
-    { name: "End of Semester Social", weeksBack: 2, description: "Holiday party and awards." },
-    { name: "General Meeting – Spring Planning", weeksBack: 1 },
-    { name: "Workshop: Interview Prep", weeksBack: 0 },
+  const items: {
+    name: string;
+    weeksBack: number;
+    description?: string;
+    time: string;
+    endTime: string;
+  }[] = [
+    {
+      name: "General Meeting – Fall Kickoff",
+      weeksBack: 11,
+      description: "Welcome back, semester goals, and introductions.",
+      time: "18:00",
+      endTime: "19:00",
+    },
+    {
+      name: "Workshop: Resume & LinkedIn",
+      weeksBack: 10,
+      description: "One-on-one resume reviews with industry guests.",
+      time: "18:30",
+      endTime: "20:00",
+    },
+    { name: "Guest Speaker: Product at Stripe", weeksBack: 9, time: "19:00", endTime: "20:30" },
+    {
+      name: "Social: Trivia Night",
+      weeksBack: 9,
+      description: "Team trivia and pizza.",
+      time: "20:00",
+      endTime: "22:00",
+    },
+    { name: "General Meeting – October", weeksBack: 8, time: "18:00", endTime: "19:00" },
+    {
+      name: "Career Panel: Engineering Paths",
+      weeksBack: 7,
+      description: "Panel with 4 engineers from different companies.",
+      time: "18:30",
+      endTime: "20:00",
+    },
+    { name: "Hackathon Kickoff", weeksBack: 6, time: "17:00", endTime: "19:00" },
+    { name: "Workshop: System Design", weeksBack: 5, time: "18:00", endTime: "19:30" },
+    { name: "General Meeting – November", weeksBack: 5, time: "18:00", endTime: "19:00" },
+    {
+      name: "Alumni Networking Happy Hour",
+      weeksBack: 4,
+      description: "Casual networking with recent grads.",
+      time: "19:00",
+      endTime: "21:00",
+    },
+    {
+      name: "Mock Interviews",
+      weeksBack: 3,
+      description: "Technical and behavioral practice.",
+      time: "18:00",
+      endTime: "20:00",
+    },
+    {
+      name: "End of Semester Social",
+      weeksBack: 2,
+      description: "Holiday party and awards.",
+      time: "19:30",
+      endTime: "22:00",
+    },
+    { name: "General Meeting – Spring Planning", weeksBack: 1, time: "18:00", endTime: "19:00" },
+    { name: "Workshop: Interview Prep", weeksBack: 0, time: "18:00", endTime: "19:30" },
   ];
   return items.map((item, i) => ({
     id: `demo-event-${i}`,
     name: item.name,
     date: weeksAgo(item.weeksBack),
+    time: item.time,
+    endTime: item.endTime,
     description: item.description,
     createdAt: new Date(Date.now() - item.weeksBack * 7 * 24 * 60 * 60 * 1000).toISOString(),
   }));

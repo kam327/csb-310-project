@@ -200,6 +200,25 @@ export default function EventDetailPage() {
               day: "numeric",
               year: "numeric",
             })}
+            {event.time && (
+              <>
+                {" "}
+                ·{" "}
+                {new Date(`${event.date}T${event.time}`).toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                {event.endTime && (
+                  <>
+                    {" – "}
+                    {new Date(`${event.date}T${event.endTime}`).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </>
+                )}
+              </>
+            )}
           </p>
           {event.description && (
             <p className="mt-3 text-forest-300">{event.description}</p>
