@@ -2,15 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { Users, Mail, Calendar } from "lucide-react";
-import { store } from "@/lib/store";
 import type { Member } from "@/types";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  fetchAttendanceForClub,
+  membersFromCheckIns,
+} from "@/lib/supabaseData";
 
 export default function MembersPage() {
+  const { profile } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
-    setMembers(store.members.getAll());
-  }, []);
+    if (profile?.club_id) {
+      fetchAttendanceForClub(profile.club_id).then((checkIns) => {
+        setMembers(membersFromCheckIns(checkIns));
+      });
+    } else {
+      setMembers([]);
+    }
+  }, [profile?.club_id]);
 
   const sorted = [...members].sort((a, b) => {
     const aLast = a.lastSeen ?? a.firstSeen;

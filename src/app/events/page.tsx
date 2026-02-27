@@ -2,37 +2,84 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Calendar, QrCode, Users } from "lucide-react";
-import { store, generateId } from "@/lib/store";
+import { Plus, QrCode, Users } from "lucide-react";
 import type { Event } from "@/types";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/components/AuthProvider";
+import { fetchEvents, fetchAttendanceForClub } from "@/lib/supabaseData";
 
 export default function EventsPage() {
+  const { user, profile, loading, profileError, refreshProfile } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
+  const [checkInsByEvent, setCheckInsByEvent] = useState<Record<string, number>>({});
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshEvents = async () => {
+    if (!profile?.club_id) return;
+    const list = await fetchEvents(profile.club_id);
+    setEvents(list);
+    const checkIns = await fetchAttendanceForClub(profile.club_id);
+    const byEvent: Record<string, number> = {};
+    checkIns.forEach((c) => {
+      byEvent[c.eventId] = (byEvent[c.eventId] ?? 0) + 1;
+    });
+    setCheckInsByEvent(byEvent);
+  };
 
   useEffect(() => {
-    setEvents(store.events.getAll());
-  }, []);
+    if (!profile?.club_id) {
+      setEvents([]);
+      setCheckInsByEvent({});
+      return;
+    }
+    refreshEvents();
+  }, [profile?.club_id]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !date) return;
-    const event: Event = {
-      id: generateId(),
-      name: name.trim(),
-      date,
-      description: description.trim() || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    store.events.add(event);
-    setEvents(store.events.getAll());
-    setName("");
-    setDate("");
-    setDescription("");
-    setShowForm(false);
+    if (!user || !profile) {
+      setError("You need to be signed in to create events.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+
+    const qrToken = crypto.randomUUID();
+
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .insert({
+          club_id: profile.club_id,
+          title: name.trim(),
+          description: description.trim() || null,
+          event_date: date,
+          location: null,
+          qr_token: qrToken,
+        })
+        .select("id, title, description, event_date, created_at")
+        .single();
+
+      if (error || !data) {
+        setError(error?.message ?? "Failed to create event in Supabase.");
+      } else {
+        await refreshEvents();
+        setName("");
+        setDate("");
+        setDescription("");
+        setShowForm(false);
+      }
+    } catch (err) {
+      setError((err as Error).message ?? "Failed to create event.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const now = new Date();
@@ -52,15 +99,67 @@ export default function EventsPage() {
             Create events and use QR check-in to track attendance
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 font-semibold text-slate-900 transition hover:bg-brand-400"
-        >
-          <Plus className="h-4 w-4" />
-          New event
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-2 rounded-lg border border-forest-700 bg-forest-900/80 px-4 py-2.5 text-sm font-semibold text-forest-300 opacity-70"
+          >
+            Loading…
+          </button>
+        ) : user && !profile ? (
+          <button
+            type="button"
+            disabled
+            className="inline-flex items-center gap-2 rounded-lg border border-forest-700 bg-forest-900/80 px-4 py-2.5 text-sm font-semibold text-forest-300 opacity-70"
+          >
+            Choose your club…
+          </button>
+        ) : user && profile ? (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 font-semibold text-slate-900 transition hover:bg-brand-400"
+          >
+            <Plus className="h-4 w-4" />
+            New event
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 rounded-lg border border-forest-700 bg-forest-900/80 px-4 py-2.5 text-sm font-semibold text-forest-300 transition hover:bg-forest-800"
+          >
+            Sign in to create events
+          </Link>
+        )}
       </div>
+
+      {!loading && user && !profile && (
+        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-5">
+          <p className="text-sm font-medium text-white">Profile not ready yet.</p>
+          <p className="mt-1 text-sm text-forest-300">
+            Finish setup to associate your account with a club.
+          </p>
+          {profileError && (
+            <p className="mt-2 text-sm text-red-300">{profileError}</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href="/onboarding"
+              className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-brand-400"
+            >
+              Choose your club
+            </Link>
+            <button
+              type="button"
+              onClick={() => refreshProfile()}
+              className="rounded-lg bg-forest-800 px-3 py-2 text-sm font-semibold text-forest-100 hover:bg-forest-700"
+            >
+              Retry loading profile
+            </button>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="mt-8 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
@@ -106,12 +205,14 @@ export default function EventsPage() {
                 className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
               />
             </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="rounded-lg bg-brand-500 px-4 py-2.5 font-semibold text-slate-900 transition hover:bg-brand-400"
+                disabled={saving}
+                className="rounded-lg bg-brand-500 px-4 py-2.5 font-semibold text-slate-900 transition hover:bg-brand-400 disabled:opacity-60"
               >
-                Create event
+                {saving ? "Creating..." : "Create event"}
               </button>
               <button
                 type="button"
@@ -130,7 +231,7 @@ export default function EventsPage() {
           <h2 className="text-lg font-semibold text-white">Upcoming</h2>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {upcoming.map((e) => (
-              <EventCard key={e.id} event={e} />
+              <EventCard key={e.id} event={e} checkInCount={checkInsByEvent[e.id] ?? 0} />
             ))}
           </ul>
         </section>
@@ -147,7 +248,7 @@ export default function EventsPage() {
         ) : (
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {past.map((e) => (
-              <EventCard key={e.id} event={e} past />
+              <EventCard key={e.id} event={e} past checkInCount={checkInsByEvent[e.id] ?? 0} />
             ))}
           </ul>
         )}
@@ -156,9 +257,7 @@ export default function EventsPage() {
   );
 }
 
-function EventCard({ event, past }: { event: Event; past?: boolean }) {
-  const checkInCount = store.checkIns.getByEventId(event.id).length;
-
+function EventCard({ event, past, checkInCount }: { event: Event; past?: boolean; checkInCount: number }) {
   return (
     <li className="rounded-xl border border-forest-800 bg-forest-900/80 p-5 transition hover:border-forest-700">
       <div className="flex items-start justify-between gap-2">

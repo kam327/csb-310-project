@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -10,11 +10,22 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { store } from "@/lib/store";
+import type { Event, CheckIn } from "@/types";
 
-export function EventAttendanceChart() {
+export function EventAttendanceChart({
+  events = [],
+  checkIns = [],
+}: {
+  events?: Event[];
+  checkIns?: CheckIn[];
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const data = useMemo(() => {
-    const events = store.events.getAll();
+    if (!mounted) return [];
     const now = new Date();
     const past = events
       .filter((e) => new Date(e.date) < now)
@@ -23,15 +34,25 @@ export function EventAttendanceChart() {
     return past.map((e) => ({
       name: e.name.length > 20 ? e.name.slice(0, 18) + "…" : e.name,
       fullName: e.name,
-      attendance: store.checkIns.getByEventId(e.id).length,
+      attendance: checkIns.filter((c) => c.eventId === e.id).length,
       date: new Date(e.date).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       }),
     }));
-  }, []);
+  }, [mounted, events, checkIns]);
 
-  if (data.length === 0) return null;
+  if (!mounted) {
+    return <div className="h-[260px] w-full" />;
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[260px] items-center justify-center text-forest-400">
+        No past events yet. Attendance by event will appear here.
+      </div>
+    );
+  }
 
   return (
     <div className="h-[260px] w-full">

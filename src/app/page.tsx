@@ -8,18 +8,51 @@ import type { Event, CheckIn, SavedMinutes } from "@/types";
 import { CheckInsOverTimeChart } from "@/components/CheckInsOverTimeChart";
 import { EngagementTrendChart } from "@/components/EngagementTrendChart";
 import { EventAttendanceChart } from "@/components/EventAttendanceChart";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  fetchEvents,
+  fetchAttendanceForClub,
+  membersFromCheckIns,
+  fetchClub,
+  fetchClubUsers,
+} from "@/lib/supabaseData";
 
 export default function HomePage() {
+  const { profile } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [minutes, setMinutes] = useState<SavedMinutes[]>([]);
   const [membersCount, setMembersCount] = useState(0);
+  const [clubName, setClubName] = useState<string | null>(null);
+  const [clubUsers, setClubUsers] = useState<
+    { id: string; role: string | null; display_name: string | null; email: string | null }[]
+  >([]);
 
   useEffect(() => {
-    setEvents(store.events.getAll());
-    setCheckIns(store.checkIns.getAll());
+    if (profile?.club_id) {
+      Promise.all([
+        fetchEvents(profile.club_id),
+        fetchAttendanceForClub(profile.club_id),
+        fetchClub(profile.club_id),
+        fetchClubUsers(profile.club_id),
+      ]).then(([evs, cis, club, users]) => {
+        setEvents(evs);
+        setCheckIns(cis);
+        setMembersCount(membersFromCheckIns(cis).length);
+        setClubName(club?.name ?? null);
+        setClubUsers(users ?? []);
+      });
+    } else {
+      setEvents([]);
+      setCheckIns([]);
+      setMembersCount(0);
+      setClubName(null);
+      setClubUsers([]);
+    }
+  }, [profile?.club_id]);
+
+  useEffect(() => {
     setMinutes(store.minutes.getAll());
-    setMembersCount(store.members.getAll().length);
   }, []);
 
   const now = new Date();
@@ -40,6 +73,49 @@ export default function HomePage() {
       <p className="mt-1 text-forest-300">
         Overview of your club&apos;s activity and data
       </p>
+
+      {clubName && (
+        <section className="mt-4 rounded-xl border border-forest-800 bg-forest-900/80 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-forest-400">
+                Club
+              </p>
+              <p className="mt-1 text-xl font-semibold text-white">{clubName}</p>
+              <p className="mt-1 text-xs text-forest-400">
+                {clubUsers.length} authenticated user
+                {clubUsers.length === 1 ? "" : "s"} associated with this club.
+              </p>
+            </div>
+            {clubUsers.length > 0 && (
+              <div className="w-full max-w-sm rounded-lg border border-forest-800 bg-forest-950/60 p-3">
+                <p className="text-xs font-medium text-forest-300">
+                  Club users
+                </p>
+                <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-xs text-forest-200">
+                  {clubUsers.map((u) => {
+                    const label =
+                      u.display_name ||
+                      u.email ||
+                      `${u.id.slice(0, 8)}…`;
+                    return (
+                      <li
+                        key={u.id}
+                        className="flex items-center justify-between rounded px-2 py-1 hover:bg-forest-900/70"
+                      >
+                        <span className="text-forest-200">{label}</span>
+                        <span className="ml-3 text-forest-400">
+                          {u.role ?? "member"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -75,7 +151,7 @@ export default function HomePage() {
               Check-ins by week (last 12 weeks)
             </h3>
             <div className="mt-4">
-              <CheckInsOverTimeChart />
+              <CheckInsOverTimeChart checkIns={checkIns} />
             </div>
             <p className="mt-2 text-xs text-forest-400">
               Total check-ins per week
@@ -86,7 +162,7 @@ export default function HomePage() {
               Engagement trend (12 weeks)
             </h3>
             <div className="mt-4">
-              <EngagementTrendChart />
+              <EngagementTrendChart checkIns={checkIns} />
             </div>
             <p className="mt-2 text-xs text-forest-400">
               Weekly check-in trend over time
@@ -98,7 +174,7 @@ export default function HomePage() {
             Attendance by event (last 10 events)
           </h3>
           <div className="mt-4 min-h-[200px]">
-            <EventAttendanceChart />
+            <EventAttendanceChart events={events} checkIns={checkIns} />
           </div>
           {events.filter((e) => new Date(e.date) < now).length === 0 && (
             <p className="mt-4 text-forest-400">No past events yet. Create events and check-ins to see attendance by event.</p>
@@ -185,7 +261,7 @@ export default function HomePage() {
           <h2 className="text-lg font-semibold text-white">Recent past events</h2>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
             {recentEvents.map((e) => {
-              const count = store.checkIns.getByEventId(e.id).length;
+              const count = checkIns.filter((c) => c.eventId === e.id).length;
               return (
                 <li
                   key={e.id}

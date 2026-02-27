@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Users, Copy, ExternalLink, Smartphone } from "lucide-react";
-import { store } from "@/lib/store";
 import type { Event, CheckIn } from "@/types";
+import { fetchEventById, fetchAttendanceForEvent } from "@/lib/supabaseData";
 
 const BASE_URL_KEY = "gauge-checkin-base-url";
 
@@ -34,9 +34,18 @@ export default function EventDetailPage() {
   const [baseUrlInput, setBaseUrlInput] = useState("");
 
   useEffect(() => {
-    const e = store.events.getById(id);
-    setEvent(e ?? null);
-    setCheckIns(store.checkIns.getByEventId(id));
+    let cancelled = false;
+    Promise.all([fetchEventById(id), fetchAttendanceForEvent(id)]).then(
+      ([e, cis]) => {
+        if (!cancelled) {
+          setEvent(e ?? null);
+          setCheckIns(cis);
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {

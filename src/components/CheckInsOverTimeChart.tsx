@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { store } from "@/lib/store";
+import type { CheckIn } from "@/types";
 
 function getWeekKey(date: Date): string {
   const d = new Date(date);
@@ -26,9 +26,14 @@ function getWeekLabel(weekKey: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-export function CheckInsOverTimeChart() {
+export function CheckInsOverTimeChart({ checkIns = [] }: { checkIns?: CheckIn[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const data = useMemo(() => {
-    const checkIns = store.checkIns.getAll();
+    if (!mounted) return [];
     const byWeek: Record<string, number> = {};
     const now = new Date();
     for (let w = 0; w < 12; w++) {
@@ -47,9 +52,14 @@ export function CheckInsOverTimeChart() {
       fullDate: key,
       checkIns: byWeek[key],
     }));
-  }, []);
+  }, [mounted, checkIns]);
 
-  if (data.every((d) => d.checkIns === 0)) {
+  if (!mounted) {
+    // Render a stable skeleton on the server and before hydration
+    return <div className="h-[260px] w-full" />;
+  }
+
+  if (data.length === 0 || data.every((d) => d.checkIns === 0)) {
     return (
       <div className="flex h-[260px] items-center justify-center text-forest-400">
         No check-in data yet. Check-ins will appear here by week.

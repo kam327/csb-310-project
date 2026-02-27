@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Gauge – Data-driven club management",
@@ -16,9 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="antialiased font-sans bg-forest-950 text-white">
-        <Nav />
-        <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        <AuthProvider>
+          <Nav />
+          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );
 }
+

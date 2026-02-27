@@ -2,40 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle, Loader2 } from "lucide-react";
-import { store, generateId } from "@/lib/store";
+import { CheckCircle } from "lucide-react";
 import type { Event } from "@/types";
+import { fetchEventById, insertCheckIn } from "@/lib/supabaseData";
 
 export default function CheckInPage() {
   const params = useParams();
-  const router = useParams();
   const eventId = params.eventId as string;
   const [event, setEvent] = useState<Event | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const e = store.events.getById(eventId);
-    setEvent(e ?? null);
+    fetchEventById(eventId).then(setEvent);
   }, [eventId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!name.trim()) {
       setError("Please enter your name.");
       return;
     }
-    const member = store.members.getOrCreateFromCheckIn(name.trim(), email.trim() || undefined);
-    store.checkIns.add({
-      id: generateId(),
-      eventId,
-      memberName: member.name,
-      memberEmail: member.email,
-      checkedInAt: new Date().toISOString(),
+    setSubmitting(true);
+    const { error: err } = await insertCheckIn(eventId, {
+      memberName: name.trim(),
+      memberEmail: email.trim() || undefined,
     });
+    setSubmitting(false);
+    if (err) {
+      setError(err.message ?? "Check-in failed. Please try again.");
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -107,9 +108,10 @@ export default function CheckInPage() {
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-3 font-semibold text-slate-900 transition hover:bg-brand-400"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 py-3 font-semibold text-slate-900 transition hover:bg-brand-400 disabled:opacity-60"
           >
-            Check in
+            {submitting ? "Checking in…" : "Check in"}
           </button>
         </form>
       </div>

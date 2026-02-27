@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { store } from "@/lib/store";
+import type { CheckIn } from "@/types";
 
 function getWeekKey(date: Date): string {
   const d = new Date(date);
@@ -26,9 +26,14 @@ function getWeekLabel(weekKey: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function EngagementTrendChart() {
+export function EngagementTrendChart({ checkIns = [] }: { checkIns?: CheckIn[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const data = useMemo(() => {
-    const checkIns = store.checkIns.getAll();
+    if (!mounted) return [];
     const byWeek: Record<string, number> = {};
     const now = new Date();
     for (let w = 0; w < 12; w++) {
@@ -47,7 +52,11 @@ export function EngagementTrendChart() {
       fullDate: key,
       checkIns: byWeek[key],
     }));
-  }, []);
+  }, [mounted, checkIns]);
+
+  if (!mounted) {
+    return <div className="h-[260px] w-full" />;
+  }
 
   return (
     <div className="h-[260px] w-full">
