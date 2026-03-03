@@ -61,7 +61,7 @@ export default function MinutesPage() {
 
       // If this user can create critical tasks and we have extracted action items,
       // pre-populate the critical task form from the first action item.
-      if (canCreateCritical && users.length > 0 && data.actionItems.length > 0) {
+      if (canCreateCritical && data.actionItems.length > 0) {
         const first = data.actionItems[0];
         setShowCriticalForm(true);
         setCriticalTask(first.task || "");
