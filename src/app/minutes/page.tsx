@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -15,6 +15,12 @@ import {
 } from "lucide-react";
 import { store, generateId } from "@/lib/store";
 import type { ExtractedMinutes, SavedMinutes } from "@/types";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  fetchClubUsers,
+  createCriticalActionItem,
+  type ClubUserProfile,
+} from "@/lib/supabaseData";
 
 export default function MinutesPage() {
   const [rawText, setRawText] = useState("");
@@ -22,6 +28,15 @@ export default function MinutesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const { profile } = useAuth();
+  const [users, setUsers] = useState<ClubUserProfile[]>([]);
+  const [showCriticalForm, setShowCriticalForm] = useState(false);
+  const [criticalTask, setCriticalTask] = useState("");
+  const [criticalAssigneeId, setCriticalAssigneeId] = useState<string>("");
+  const [criticalDueDate, setCriticalDueDate] = useState("");
+  const [criticalSaving, setCriticalSaving] = useState(false);
+  const [criticalError, setCriticalError] = useState<string | null>(null);
+  const [criticalSuccess, setCriticalSuccess] = useState<string | null>(null);
 
   const handleExtract = async () => {
     if (!rawText.trim()) {
@@ -68,6 +83,78 @@ export default function MinutesPage() {
   };
 
   const allMinutes = typeof window !== "undefined" ? store.minutes.getAll() : [];
+
+  const canCreateCritical =
+    Boolean(profile?.role === "officer" && profile.club_id);
+
+  useEffect(() => {
+    if (!canCreateCritical || !profile?.club_id) {
+      setUsers([]);
+      return;
+    }
+    let cancelled = false;
+    fetchClubUsers(profile.club_id)
+      .then((list) => {
+        if (!cancelled) setUsers(list);
+      })
+      .catch(() => {
+        if (!cancelled) setUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canCreateCritical, profile?.club_id]);
+
+  const handleCreateCriticalTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.club_id) return;
+    if (!criticalTask.trim()) {
+      setCriticalError("Please enter a task description.");
+      return;
+    }
+    if (!criticalAssigneeId) {
+      setCriticalError("Please choose an assignee.");
+      return;
+    }
+    if (!criticalDueDate) {
+      setCriticalError("Please choose a due date.");
+      return;
+    }
+    const assignee = users.find((u) => u.id === criticalAssigneeId);
+    if (!assignee || !assignee.email) {
+      setCriticalError("Selected user does not have an email configured.");
+      return;
+    }
+
+    setCriticalSaving(true);
+    setCriticalError(null);
+    setCriticalSuccess(null);
+    try {
+      const { error: createError } = await createCriticalActionItem({
+        clubId: profile.club_id,
+        task: criticalTask.trim(),
+        assigneeEmail: assignee.email,
+        dueDate: criticalDueDate,
+      });
+      if (createError) {
+        setCriticalError(
+          createError.message ?? "Failed to create critical task."
+        );
+      } else {
+        setCriticalSuccess("Critical task created.");
+        setCriticalTask("");
+        setCriticalDueDate("");
+        setCriticalAssigneeId("");
+        setShowCriticalForm(false);
+      }
+    } catch (err) {
+      setCriticalError(
+        (err as Error).message ?? "Failed to create critical task."
+      );
+    } finally {
+      setCriticalSaving(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -259,6 +346,120 @@ export default function MinutesPage() {
           )}
         </section>
       </div>
+
+      {canCreateCritical && (
+        <section className="mt-10 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+            <CheckSquare className="h-5 w-5 text-gauge-400" />
+            Critical tasks
+          </h2>
+          <p className="mt-1 text-sm text-forest-400">
+            Create critical action items for authenticated club users. Gauge will
+            email them based on your reminder settings.
+          </p>
+
+          {users.length === 0 ? (
+            <p className="mt-4 text-sm text-forest-400">
+              No club users found yet. Critical tasks can be assigned once users
+              have joined your club.
+            </p>
+          ) : (
+            <div className="mt-4">
+              {!showCriticalForm ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCriticalForm(true);
+                    setCriticalError(null);
+                    setCriticalSuccess(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-400"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Create critical task
+                </button>
+              ) : (
+                <form
+                  onSubmit={handleCreateCriticalTask}
+                  className="space-y-3 rounded-lg border border-forest-700 bg-forest-900/80 p-4"
+                >
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Assignee
+                    </label>
+                    <select
+                      value={criticalAssigneeId}
+                      onChange={(e) => setCriticalAssigneeId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    >
+                      <option value="">Select a user…</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.display_name || u.email || "Unnamed user"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Task
+                    </label>
+                    <input
+                      type="text"
+                      value={criticalTask}
+                      onChange={(e) => setCriticalTask(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                      placeholder="e.g. Send sponsor follow-up email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Due date
+                    </label>
+                    <input
+                      type="date"
+                      value={criticalDueDate}
+                      onChange={(e) => setCriticalDueDate(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+                  {criticalError && (
+                    <p className="text-xs text-red-400">{criticalError}</p>
+                  )}
+                  {criticalSuccess && (
+                    <p className="text-xs text-forest-300">
+                      {criticalSuccess}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={criticalSaving}
+                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-gauge-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
+                    >
+                      {criticalSaving ? "Saving..." : "Save critical task"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCriticalForm(false);
+                        setCriticalTask("");
+                        setCriticalDueDate("");
+                        setCriticalAssigneeId("");
+                        setCriticalError(null);
+                        setCriticalSuccess(null);
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border border-forest-700 px-3 py-2 text-sm font-medium text-forest-200 hover:bg-forest-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {allMinutes.length > 0 && (
         <section className="mt-10 rounded-xl border border-forest-800 bg-forest-900/80 p-6">

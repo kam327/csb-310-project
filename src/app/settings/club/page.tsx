@@ -179,6 +179,7 @@ export default function ClubSettingsPage() {
             {saving ? "Saving..." : "Save reminder settings"}
           </button>
         </div>
+
       </div>
     </div>
   );
