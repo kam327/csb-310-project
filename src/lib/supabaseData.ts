@@ -165,6 +165,7 @@ export interface ClubSummary {
   id: string;
   name: string;
   university_name: string | null;
+  join_code: string | null;
 }
 
 export interface ClubUserProfile {
@@ -180,7 +181,7 @@ export async function fetchClub(
   if (!clubId) return null;
   const { data, error } = await supabase
     .from("clubs")
-    .select("id, name, university_name")
+    .select("id, name, university_name, join_code")
     .eq("id", clubId)
     .single();
   if (error || !data) {
