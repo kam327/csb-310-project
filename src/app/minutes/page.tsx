@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -12,6 +12,8 @@ import {
   CheckSquare,
   ListChecks,
   ArrowLeft,
+  Plus,
+  X,
 } from "lucide-react";
 import { store, generateId } from "@/lib/store";
 import type { ExtractedMinutes, SavedMinutes } from "@/types";
@@ -22,6 +24,20 @@ import {
   type ClubUserProfile,
 } from "@/lib/supabaseData";
 
+interface CriticalDraft {
+  key: string;
+  task: string;
+  assigneeId: string;
+  dueDate: string;
+  saving: boolean;
+  error: string | null;
+  saved: boolean;
+}
+
+function makeKey() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export default function MinutesPage() {
   const [rawText, setRawText] = useState("");
   const [extracted, setExtracted] = useState<ExtractedMinutes | null>(null);
@@ -30,13 +46,19 @@ export default function MinutesPage() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const { profile } = useAuth();
   const [users, setUsers] = useState<ClubUserProfile[]>([]);
-  const [showCriticalForm, setShowCriticalForm] = useState(false);
-  const [criticalTask, setCriticalTask] = useState("");
-  const [criticalAssigneeId, setCriticalAssigneeId] = useState<string>("");
-  const [criticalDueDate, setCriticalDueDate] = useState("");
-  const [criticalSaving, setCriticalSaving] = useState(false);
-  const [criticalError, setCriticalError] = useState<string | null>(null);
-  const [criticalSuccess, setCriticalSuccess] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<CriticalDraft[]>([]);
+
+  const matchAssignee = useCallback(
+    (name: string | undefined): string => {
+      if (!name || users.length === 0) return "";
+      const lower = name.toLowerCase();
+      const match = users.find(
+        (u) => u.display_name && u.display_name.toLowerCase().includes(lower)
+      );
+      return match ? match.id : "";
+    },
+    [users]
+  );
 
   const handleExtract = async () => {
     if (!rawText.trim()) {
@@ -59,39 +81,21 @@ export default function MinutesPage() {
       setExtracted(data);
       setSavedId(null);
 
-      // If this user can create critical tasks and we have extracted action items,
-      // pre-populate the critical task form from the first action item.
       if (canCreateCritical && data.actionItems.length > 0) {
-        const first = data.actionItems[0];
-        setShowCriticalForm(true);
-        setCriticalTask(first.task || "");
-
-        // Try to map the extracted assignee name to a club user by display name.
-        if (first.assignee) {
-          const assigneeName = first.assignee.toLowerCase();
-          const match = users.find(
-            (u) =>
-              u.display_name &&
-              u.display_name.toLowerCase().includes(assigneeName)
-          );
-          if (match) {
-            setCriticalAssigneeId(match.id);
-          } else {
-            setCriticalAssigneeId("");
-          }
-        } else {
-          setCriticalAssigneeId("");
-        }
-
-        // If the extracted due field looks like YYYY-MM-DD, use it; otherwise leave blank.
-        if (first.due && /^\d{4}-\d{2}-\d{2}$/.test(first.due)) {
-          setCriticalDueDate(first.due);
-        } else {
-          setCriticalDueDate("");
-        }
-
-        setCriticalError(null);
-        setCriticalSuccess(null);
+        setDrafts(
+          data.actionItems.map((item) => ({
+            key: makeKey(),
+            task: item.task || "",
+            assigneeId: matchAssignee(item.assignee),
+            dueDate:
+              item.due && /^\d{4}-\d{2}-\d{2}$/.test(item.due)
+                ? item.due
+                : "",
+            saving: false,
+            error: null,
+            saved: false,
+          }))
+        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -140,54 +144,76 @@ export default function MinutesPage() {
     };
   }, [canCreateCritical, profile?.club_id]);
 
-  const handleCreateCriticalTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile?.club_id) return;
-    if (!criticalTask.trim()) {
-      setCriticalError("Please enter a task description.");
+  const updateDraft = (key: string, patch: Partial<CriticalDraft>) => {
+    setDrafts((prev) =>
+      prev.map((d) => (d.key === key ? { ...d, ...patch } : d))
+    );
+  };
+
+  const removeDraft = (key: string) => {
+    setDrafts((prev) => prev.filter((d) => d.key !== key));
+  };
+
+  const addBlankDraft = () => {
+    setDrafts((prev) => [
+      ...prev,
+      {
+        key: makeKey(),
+        task: "",
+        assigneeId: "",
+        dueDate: "",
+        saving: false,
+        error: null,
+        saved: false,
+      },
+    ]);
+  };
+
+  const handleSaveDraft = async (key: string) => {
+    const draft = drafts.find((d) => d.key === key);
+    if (!draft || !profile?.club_id) return;
+
+    if (!draft.task.trim()) {
+      updateDraft(key, { error: "Please enter a task description." });
       return;
     }
-    if (!criticalAssigneeId) {
-      setCriticalError("Please choose an assignee.");
+    if (!draft.assigneeId) {
+      updateDraft(key, { error: "Please choose an assignee." });
       return;
     }
-    if (!criticalDueDate) {
-      setCriticalError("Please choose a due date.");
+    if (!draft.dueDate) {
+      updateDraft(key, { error: "Please choose a due date." });
       return;
     }
-    const assignee = users.find((u) => u.id === criticalAssigneeId);
+    const assignee = users.find((u) => u.id === draft.assigneeId);
     if (!assignee || !assignee.email) {
-      setCriticalError("Selected user does not have an email configured.");
+      updateDraft(key, {
+        error: "Selected user does not have an email configured.",
+      });
       return;
     }
 
-    setCriticalSaving(true);
-    setCriticalError(null);
-    setCriticalSuccess(null);
+    updateDraft(key, { saving: true, error: null });
     try {
       const { error: createError } = await createCriticalActionItem({
         clubId: profile.club_id,
-        task: criticalTask.trim(),
+        task: draft.task.trim(),
         assigneeEmail: assignee.email,
-        dueDate: criticalDueDate,
+        dueDate: draft.dueDate,
       });
       if (createError) {
-        setCriticalError(
-          createError.message ?? "Failed to create critical task."
-        );
+        updateDraft(key, {
+          saving: false,
+          error: createError.message ?? "Failed to create critical task.",
+        });
       } else {
-        setCriticalSuccess("Critical task created.");
-        setCriticalTask("");
-        setCriticalDueDate("");
-        setCriticalAssigneeId("");
-        setShowCriticalForm(false);
+        updateDraft(key, { saving: false, saved: true, error: null });
       }
     } catch (err) {
-      setCriticalError(
-        (err as Error).message ?? "Failed to create critical task."
-      );
-    } finally {
-      setCriticalSaving(false);
+      updateDraft(key, {
+        saving: false,
+        error: (err as Error).message ?? "Failed to create critical task.",
+      });
     }
   };
 
@@ -399,98 +425,111 @@ export default function MinutesPage() {
               have joined your club.
             </p>
           ) : (
-            <div className="mt-4">
-              {!showCriticalForm ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCriticalForm(true);
-                    setCriticalError(null);
-                    setCriticalSuccess(null);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-400"
+            <div className="mt-4 space-y-4">
+              {drafts.map((draft) => (
+                <div
+                  key={draft.key}
+                  className={`rounded-lg border p-4 ${
+                    draft.saved
+                      ? "border-green-700 bg-green-900/20"
+                      : "border-forest-700 bg-forest-900/80"
+                  }`}
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Create critical task
-                </button>
-              ) : (
-                <form
-                  onSubmit={handleCreateCriticalTask}
-                  className="space-y-3 rounded-lg border border-forest-700 bg-forest-900/80 p-4"
-                >
-                  <div>
-                    <label className="block text-sm font-medium text-forest-300">
-                      Assignee
-                    </label>
-                    <select
-                      value={criticalAssigneeId}
-                      onChange={(e) => setCriticalAssigneeId(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
-                    >
-                      <option value="">Select a user…</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.display_name || u.email || "Unnamed user"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-forest-300">
-                      Task
-                    </label>
-                    <input
-                      type="text"
-                      value={criticalTask}
-                      onChange={(e) => setCriticalTask(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
-                      placeholder="e.g. Send sponsor follow-up email"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-forest-300">
-                      Due date
-                    </label>
-                    <input
-                      type="date"
-                      value={criticalDueDate}
-                      onChange={(e) => setCriticalDueDate(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
-                    />
-                  </div>
-                  {criticalError && (
-                    <p className="text-xs text-red-400">{criticalError}</p>
-                  )}
-                  {criticalSuccess && (
-                    <p className="text-xs text-forest-300">
-                      {criticalSuccess}
+                  {draft.saved ? (
+                    <p className="flex items-center gap-2 text-sm text-green-400">
+                      <CheckSquare className="h-4 w-4" /> Saved
+                      {draft.task && (
+                        <span className="text-forest-300">— {draft.task}</span>
+                      )}
                     </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-forest-300">
+                            Task
+                          </label>
+                          <input
+                            type="text"
+                            value={draft.task}
+                            onChange={(e) =>
+                              updateDraft(draft.key, { task: e.target.value })
+                            }
+                            className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                            placeholder="e.g. Send sponsor follow-up email"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDraft(draft.key)}
+                          className="mt-6 text-forest-400 hover:text-red-400"
+                          title="Remove draft"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-sm font-medium text-forest-300">
+                            Assignee
+                          </label>
+                          <select
+                            value={draft.assigneeId}
+                            onChange={(e) =>
+                              updateDraft(draft.key, {
+                                assigneeId: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                          >
+                            <option value="">Select a user…</option>
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.display_name || u.email || "Unnamed user"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-forest-300">
+                            Due date
+                          </label>
+                          <input
+                            type="date"
+                            value={draft.dueDate}
+                            onChange={(e) =>
+                              updateDraft(draft.key, {
+                                dueDate: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                          />
+                        </div>
+                      </div>
+                      {draft.error && (
+                        <p className="text-xs text-red-400">{draft.error}</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSaveDraft(draft.key)}
+                        disabled={draft.saving}
+                        className="inline-flex items-center justify-center rounded-lg bg-gauge-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
+                      >
+                        {draft.saving ? "Saving…" : "Save critical task"}
+                      </button>
+                    </div>
                   )}
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={criticalSaving}
-                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-gauge-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
-                    >
-                      {criticalSaving ? "Saving..." : "Save critical task"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCriticalForm(false);
-                        setCriticalTask("");
-                        setCriticalDueDate("");
-                        setCriticalAssigneeId("");
-                        setCriticalError(null);
-                        setCriticalSuccess(null);
-                      }}
-                      className="inline-flex items-center justify-center rounded-lg border border-forest-700 px-3 py-2 text-sm font-medium text-forest-200 hover:bg-forest-800"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addBlankDraft}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-400"
+              >
+                <Plus className="h-4 w-4" />
+                Add critical task
+              </button>
             </div>
           )}
         </section>

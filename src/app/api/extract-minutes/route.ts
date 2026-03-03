@@ -148,7 +148,25 @@ function extractHeuristic(text: string): ExtractedMinutes {
       keyDecisions.push(line.replace(/^[-*•]\s+/, "").trim());
     }
     if (inActions && line.match(/^[-*•]\s+.+/) && line.length > 5) {
-      actionItems.push({ task: line.replace(/^[-*•]\s+/, "").trim() });
+      const itemText = line.replace(/^[-*•]\s+/, "").trim();
+
+      let assignee: string | undefined;
+      let taskText = itemText;
+
+      const nameSplit = itemText.match(/^([^–-]+)[–-]\s*(.+)$/);
+      if (nameSplit) {
+        assignee = nameSplit[1].trim();
+        taskText = nameSplit[2].trim();
+      }
+
+      let due: string | undefined;
+      const dueMatch = taskText.match(/\b(?:by|on)\s+(\d{4}-\d{2}-\d{2})\s*$/i);
+      if (dueMatch) {
+        due = dueMatch[1];
+        taskText = taskText.replace(/\b(?:by|on)\s+\d{4}-\d{2}-\d{2}\s*$/i, "").trim();
+      }
+
+      actionItems.push({ task: taskText, assignee, due });
     }
   }
 
