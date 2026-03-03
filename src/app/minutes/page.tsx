@@ -58,6 +58,41 @@ export default function MinutesPage() {
       const data = (await res.json()) as ExtractedMinutes;
       setExtracted(data);
       setSavedId(null);
+
+      // If this user can create critical tasks and we have extracted action items,
+      // pre-populate the critical task form from the first action item.
+      if (canCreateCritical && users.length > 0 && data.actionItems.length > 0) {
+        const first = data.actionItems[0];
+        setShowCriticalForm(true);
+        setCriticalTask(first.task || "");
+
+        // Try to map the extracted assignee name to a club user by display name.
+        if (first.assignee) {
+          const assigneeName = first.assignee.toLowerCase();
+          const match = users.find(
+            (u) =>
+              u.display_name &&
+              u.display_name.toLowerCase().includes(assigneeName)
+          );
+          if (match) {
+            setCriticalAssigneeId(match.id);
+          } else {
+            setCriticalAssigneeId("");
+          }
+        } else {
+          setCriticalAssigneeId("");
+        }
+
+        // If the extracted due field looks like YYYY-MM-DD, use it; otherwise leave blank.
+        if (first.due && /^\d{4}-\d{2}-\d{2}$/.test(first.due)) {
+          setCriticalDueDate(first.due);
+        } else {
+          setCriticalDueDate("");
+        }
+
+        setCriticalError(null);
+        setCriticalSuccess(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
