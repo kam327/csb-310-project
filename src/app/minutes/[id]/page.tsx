@@ -6,11 +6,16 @@ import Link from "next/link";
 import { ArrowLeft, Users, ListChecks, CheckSquare, Calendar } from "lucide-react";
 import { store } from "@/lib/store";
 import type { SavedMinutes } from "@/types";
+import { useAuth } from "@/components/AuthProvider";
+import { createCriticalActionItem } from "@/lib/supabaseData";
 
 export default function MinutesDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [minutes, setMinutes] = useState<SavedMinutes | null>(null);
+  const { profile } = useAuth();
+  const [creatingIndex, setCreatingIndex] = useState<number | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     setMinutes(store.minutes.getById(id) ?? null);
@@ -31,6 +36,55 @@ export default function MinutesDetailPage() {
   }
 
   const e = minutes.extracted;
+
+  const canCreateReminders = Boolean(profile?.role === "officer" && profile.club_id);
+
+  const handleAddReminder = async (index: number) => {
+    if (!canCreateReminders || !profile?.club_id) return;
+    const item = e.actionItems[index];
+    if (!item) return;
+
+    setCreateError(null);
+
+    const defaultEmail = "";
+    const email =
+      typeof window !== "undefined"
+        ? window.prompt(
+            `Email address responsible for this action item:\n\n${item.task}`,
+            defaultEmail
+          )
+        : null;
+    if (!email) return;
+
+    const defaultDue = item.due && item.due.match(/^\d{4}-\d{2}-\d{2}$/)
+      ? item.due
+      : "";
+    const due =
+      typeof window !== "undefined"
+        ? window.prompt(
+            "Due date for this action item (YYYY-MM-DD):",
+            defaultDue
+          )
+        : null;
+    if (!due) return;
+
+    setCreatingIndex(index);
+    try {
+      const { error } = await createCriticalActionItem({
+        clubId: profile.club_id,
+        task: item.task,
+        assigneeEmail: email,
+        dueDate: due,
+      });
+      if (error) {
+        setCreateError(error.message ?? "Failed to create reminder.");
+      }
+    } catch (err) {
+      setCreateError((err as Error).message ?? "Failed to create reminder.");
+    } finally {
+      setCreatingIndex(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -110,16 +164,38 @@ export default function MinutesDetailPage() {
                   key={i}
                   className="rounded-lg border border-forest-800 bg-forest-800/80 px-4 py-2 text-forest-300"
                 >
-                  <span>{a.task}</span>
-                  {(a.assignee || a.due) && (
-                    <span className="ml-2 text-sm text-forest-400">
-                      {[a.assignee, a.due].filter(Boolean).join(" · ")}
-                    </span>
-                  )}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <span>{a.task}</span>
+                      {(a.assignee || a.due) && (
+                        <span className="ml-2 text-sm text-forest-400">
+                          {[a.assignee, a.due].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </div>
+                    {canCreateReminders && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddReminder(i)}
+                        disabled={creatingIndex === i}
+                        className="mt-2 inline-flex items-center justify-center rounded-lg bg-gauge-500 px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60 sm:mt-0"
+                      >
+                        {creatingIndex === i ? "Adding..." : "Add email reminder"}
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))
             )}
           </ul>
+          {canCreateReminders && (
+            <p className="mt-2 text-xs text-forest-500">
+              Critical action items with reminders will email the assignee based on your club&apos;s reminder settings.
+            </p>
+          )}
+          {createError && (
+            <p className="mt-2 text-xs text-red-400">{createError}</p>
+          )}
         </section>
 
         {e.nextMeeting && (

@@ -165,6 +165,7 @@ export interface ClubSummary {
   id: string;
   name: string;
   university_name: string | null;
+  action_reminder_days: number | null;
   join_code: string | null;
 }
 
@@ -181,7 +182,7 @@ export async function fetchClub(
   if (!clubId) return null;
   const { data, error } = await supabase
     .from("clubs")
-    .select("id, name, university_name, join_code")
+    .select("id, name, university_name, action_reminder_days, join_code")
     .eq("id", clubId)
     .single();
   if (error || !data) {
@@ -204,4 +205,33 @@ export async function fetchClubUsers(
     return [];
   }
   return (data ?? []) as ClubUserProfile[];
+}
+
+export interface CriticalActionItem {
+  id: string;
+  clubId: string;
+  task: string;
+  assigneeEmail: string;
+  dueDate: string; // ISO date (YYYY-MM-DD)
+  createdAt: string;
+  reminderSent: boolean;
+}
+
+export async function createCriticalActionItem(params: {
+  clubId: string;
+  task: string;
+  assigneeEmail: string;
+  dueDate: string;
+}): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from("critical_action_items").insert({
+    club_id: params.clubId,
+    task: params.task,
+    assignee_email: params.assigneeEmail.trim(),
+    due_date: params.dueDate,
+  });
+  if (error) {
+    console.error("[Gauge] createCriticalActionItem", error);
+    return { error };
+  }
+  return { error: null };
 }

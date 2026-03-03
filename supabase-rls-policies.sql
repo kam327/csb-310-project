@@ -52,9 +52,25 @@ UPDATE public.clubs
 SET join_code = COALESCE(join_code, upper(substr(md5(random()::text), 1, 8)))
 WHERE join_code IS NULL;
 
+-- Optional: per-club settings for action item reminders (days before due date)
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS action_reminder_days integer;
+
 -- Optional: store a start/end time for each event (local time-of-day)
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_time time without time zone;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_end_time time without time zone;
+
+-- Track critical action items that should trigger reminder emails
+CREATE TABLE IF NOT EXISTS public.critical_action_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  club_id uuid NOT NULL REFERENCES public.clubs (id) ON DELETE CASCADE,
+  task text NOT NULL,
+  assignee_email text NOT NULL,
+  due_date date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  reminder_sent boolean NOT NULL DEFAULT false
+);
+
+ALTER TABLE public.critical_action_items ENABLE ROW LEVEL SECURITY;
 
 -- ========== CLUBS ==========
 DROP POLICY IF EXISTS "select clubs (authenticated)" ON public.clubs;
@@ -162,6 +178,25 @@ USING (
     SELECT id FROM public.events
     WHERE club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
   )
+);
+
+-- ========== CRITICAL ACTION ITEMS (club-scoped for auth) ==========
+DROP POLICY IF EXISTS "select critical action items (club)" ON public.critical_action_items;
+CREATE POLICY "select critical action items (club)"
+ON public.critical_action_items
+FOR SELECT
+TO authenticated
+USING (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "insert critical action items (club)" ON public.critical_action_items;
+CREATE POLICY "insert critical action items (club)"
+ON public.critical_action_items
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
 );
 
 DROP POLICY IF EXISTS "insert attendance (anon check-in)" ON public.attendance;
