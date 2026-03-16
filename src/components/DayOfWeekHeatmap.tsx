@@ -39,19 +39,23 @@ export function DayOfWeekHeatmap({
   }, [checkIns]);
 
   const dayData = useMemo(() => {
-    if (!mounted) return [];
-    const counts = Array(7).fill(0) as number[];
+    if (!mounted) return [] as { total: number; eventCount: number; avg: number }[];
+    const buckets = Array.from({ length: 7 }, () => ({ total: 0, eventCount: 0, avg: 0 }));
     for (const e of events) {
       const day = new Date(e.date + "T12:00:00").getDay();
-      counts[day] += checkInsByEvent.get(e.id) ?? 0;
+      buckets[day].total += checkInsByEvent.get(e.id) ?? 0;
+      buckets[day].eventCount += 1;
     }
-    return counts;
+    for (const b of buckets) {
+      b.avg = b.eventCount > 0 ? Math.round((b.total / b.eventCount) * 10) / 10 : 0;
+    }
+    return buckets;
   }, [mounted, events, checkInsByEvent]);
 
   const hourData = useMemo(() => {
-    if (selectedDay === null || !mounted) return [];
+    if (selectedDay === null || !mounted) return [] as { total: number; eventCount: number; avg: number }[];
 
-    const hours = new Array(HOUR_LABELS.length).fill(0) as number[];
+    const buckets = Array.from({ length: HOUR_LABELS.length }, () => ({ total: 0, eventCount: 0, avg: 0 }));
 
     const dayEvents = events.filter((e) => {
       const day = new Date(e.date + "T12:00:00").getDay();
@@ -77,34 +81,40 @@ export function DayOfWeekHeatmap({
       }
 
       if (hour !== null) {
-        hours[hour - HOUR_START] += count;
+        const idx = hour - HOUR_START;
+        buckets[idx].total += count;
+        buckets[idx].eventCount += 1;
       }
     }
 
-    return hours;
+    for (const b of buckets) {
+      b.avg = b.eventCount > 0 ? Math.round((b.total / b.eventCount) * 10) / 10 : 0;
+    }
+
+    return buckets;
   }, [selectedDay, mounted, events, checkIns, checkInsByEvent]);
 
   if (!mounted) {
     return <div className="h-[260px] w-full" />;
   }
 
-  const maxDay = Math.max(...dayData, 1);
-  const maxHour = Math.max(...hourData, 1);
+  const maxDay = Math.max(...dayData.map((d) => d.avg), 1);
+  const maxHour = Math.max(...hourData.map((h) => h.avg), 1);
 
   const nonZeroHours = hourData
-    .map((count, i) => ({ index: i, count }))
-    .filter((h) => h.count > 0);
+    .map((bucket, i) => ({ index: i, ...bucket }))
+    .filter((h) => h.avg > 0);
 
   const bestHourIndex =
     nonZeroHours.length > 0
-      ? nonZeroHours.reduce((best, h) => (h.count > best.count ? h : best))
+      ? nonZeroHours.reduce((best, h) => (h.avg > best.avg ? h : best))
           .index
       : null;
 
-  if (dayData.every((d) => d === 0)) {
+  if (dayData.every((d) => d.avg === 0)) {
     return (
       <div className="flex h-[260px] items-center justify-center text-forest-400">
-        No event data yet. Check-ins by day of week will appear here.
+        No event data yet. Average check-ins by day will appear here.
       </div>
     );
   }
@@ -113,7 +123,7 @@ export function DayOfWeekHeatmap({
     <div className="w-full">
       <div className="grid grid-cols-7 gap-2">
         {DAY_LABELS.map((label, i) => {
-          const intensity = dayData[i] / maxDay;
+          const intensity = dayData[i].avg / maxDay;
           const isSelected = selectedDay === i;
 
           return (
@@ -128,7 +138,7 @@ export function DayOfWeekHeatmap({
               }`}
               style={{
                 backgroundColor:
-                  dayData[i] === 0
+                  dayData[i].avg === 0
                     ? "rgba(45, 69, 61, 0.3)"
                     : `rgba(143, 168, 141, ${0.15 + intensity * 0.6})`,
               }}
@@ -137,9 +147,9 @@ export function DayOfWeekHeatmap({
                 {label}
               </span>
               <span className="text-lg font-bold text-white">
-                {dayData[i]}
+                {dayData[i].avg}
               </span>
-              <span className="text-[10px] text-forest-400">check-ins</span>
+              <span className="text-[10px] text-forest-400">avg / event</span>
             </button>
           );
         })}
@@ -149,7 +159,7 @@ export function DayOfWeekHeatmap({
         <div className="mt-4 rounded-lg border border-forest-700 bg-forest-900/60 p-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-forest-300">
-              {DAY_LABELS[selectedDay]} — check-ins by time of day
+              {DAY_LABELS[selectedDay]} — avg check-ins by time of day
             </h4>
             <button
               type="button"
@@ -173,12 +183,14 @@ export function DayOfWeekHeatmap({
                   <span className="font-semibold text-gauge-300">
                     {HOUR_LABELS[bestHourIndex]}
                   </span>{" "}
-                  ({hourData[bestHourIndex]} check-ins)
+                  ({hourData[bestHourIndex].avg} avg check-ins across{" "}
+                  {hourData[bestHourIndex].eventCount}{" "}
+                  {hourData[bestHourIndex].eventCount === 1 ? "event" : "events"})
                 </p>
               )}
               <div className="mt-3 space-y-1.5">
-                {nonZeroHours.map(({ index, count }) => {
-                  const width = (count / maxHour) * 100;
+                {nonZeroHours.map(({ index, avg, eventCount }) => {
+                  const width = (avg / maxHour) * 100;
                   const isBest = index === bestHourIndex;
 
                   return (
@@ -194,8 +206,11 @@ export function DayOfWeekHeatmap({
                           style={{ width: `${Math.max(width, 4)}%` }}
                         />
                       </div>
-                      <span className="w-8 text-right text-xs font-medium text-forest-300">
-                        {count}
+                      <span className="w-16 text-right text-xs font-medium text-forest-300">
+                        {avg}
+                        <span className="ml-1 text-forest-500">
+                          ({eventCount})
+                        </span>
                       </span>
                     </div>
                   );

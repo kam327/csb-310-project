@@ -148,7 +148,7 @@ export default function HomePage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
             <h3 className="text-sm font-medium text-forest-300">
-              Popularity by day of week
+              Avg check-ins by day of week
             </h3>
             <p className="mt-1 text-xs text-forest-400">
               Click a day to see the best time of day
