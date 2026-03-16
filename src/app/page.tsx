@@ -5,9 +5,9 @@ import Link from "next/link";
 import { Calendar, Users, FileText, TrendingUp, ArrowRight } from "lucide-react";
 import { store } from "@/lib/store";
 import type { Event, CheckIn, SavedMinutes } from "@/types";
-import { CheckInsOverTimeChart } from "@/components/CheckInsOverTimeChart";
 import { EngagementTrendChart } from "@/components/EngagementTrendChart";
 import { EventAttendanceChart } from "@/components/EventAttendanceChart";
+import { DayOfWeekHeatmap } from "@/components/DayOfWeekHeatmap";
 import { useAuth } from "@/components/AuthProvider";
 import {
   fetchEvents,
@@ -148,14 +148,14 @@ export default function HomePage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
             <h3 className="text-sm font-medium text-forest-300">
-              Check-ins by week (last 12 weeks)
+              Popularity by day of week
             </h3>
-            <div className="mt-4">
-              <CheckInsOverTimeChart checkIns={checkIns} />
-            </div>
-            <p className="mt-2 text-xs text-forest-400">
-              Total check-ins per week
+            <p className="mt-1 text-xs text-forest-400">
+              Click a day to see the best time of day
             </p>
+            <div className="mt-4">
+              <DayOfWeekHeatmap events={events} checkIns={checkIns} />
+            </div>
           </div>
           <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
             <h3 className="text-sm font-medium text-forest-300">
