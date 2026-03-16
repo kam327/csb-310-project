@@ -22,6 +22,7 @@ export interface Member {
   email?: string;
   firstSeen: string; // from first check-in or manual add
   lastSeen?: string;
+  eventsAttended: number;
   notes?: string;
 }
 

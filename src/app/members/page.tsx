@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Mail, Calendar, DollarSign, Save } from "lucide-react";
+import { Users, Mail, Calendar, DollarSign, Save, ArrowUpDown } from "lucide-react";
 import type { Member } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -21,6 +21,7 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [sortBy, setSortBy] = useState<"lastSeen" | "firstSeen" | "eventsAttended">("lastSeen");
 
   const isOfficer = profile?.role === "officer";
 
@@ -98,9 +99,18 @@ export default function MembersPage() {
   };
 
   const sorted = [...members].sort((a, b) => {
-    const aLast = a.lastSeen ?? a.firstSeen;
-    const bLast = b.lastSeen ?? b.firstSeen;
-    return new Date(bLast).getTime() - new Date(aLast).getTime();
+    switch (sortBy) {
+      case "eventsAttended":
+        return b.eventsAttended - a.eventsAttended;
+      case "firstSeen":
+        return new Date(b.firstSeen).getTime() - new Date(a.firstSeen).getTime();
+      case "lastSeen":
+      default: {
+        const aLast = a.lastSeen ?? a.firstSeen;
+        const bLast = b.lastSeen ?? b.firstSeen;
+        return new Date(bLast).getTime() - new Date(aLast).getTime();
+      }
+    }
   });
 
   return (
@@ -114,9 +124,38 @@ export default function MembersPage() {
       </div>
 
       <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-        <div className="flex items-center gap-2 text-forest-300">
-          <Users className="h-5 w-5" />
-          <span className="font-medium text-white">{members.length} members</span>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-forest-300">
+            <Users className="h-5 w-5" />
+            <span className="font-medium text-white">{members.length} members</span>
+          </div>
+
+          {members.length > 0 && (
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-forest-400" />
+              <span className="text-xs text-forest-400">Sort by</span>
+              {(
+                [
+                  { key: "lastSeen", label: "Last seen" },
+                  { key: "firstSeen", label: "First seen" },
+                  { key: "eventsAttended", label: "Events attended" },
+                ] as const
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSortBy(key)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                    sortBy === key
+                      ? "bg-gauge-500/20 text-gauge-300 ring-1 ring-gauge-500/40"
+                      : "text-forest-400 hover:text-forest-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {sorted.length === 0 ? (
@@ -151,7 +190,8 @@ export default function MembersPage() {
                     )}
                     <p className="mt-2 flex items-center gap-1.5 text-xs text-forest-400">
                       <Calendar className="h-3.5 w-3.5" />
-                      First seen{" "}
+                      {m.eventsAttended} {m.eventsAttended === 1 ? "event" : "events"}
+                      {" · "}First{" "}
                       {new Date(m.firstSeen).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -159,7 +199,7 @@ export default function MembersPage() {
                       })}
                       {m.lastSeen &&
                         m.lastSeen !== m.firstSeen &&
-                        ` · Last seen ${new Date(m.lastSeen).toLocaleDateString("en-US", {
+                        ` · Last ${new Date(m.lastSeen).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                           year: "numeric",

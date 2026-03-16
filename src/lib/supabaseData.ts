@@ -116,7 +116,7 @@ export async function fetchAttendanceForEvent(
 export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
   const byEmail = new Map<
     string,
-    { name: string; firstSeen: string; lastSeen: string }
+    { name: string; firstSeen: string; lastSeen: string; eventIds: Set<string> }
   >();
   for (const c of checkIns) {
     const key = (c.memberEmail ?? c.memberName).toLowerCase().trim();
@@ -127,8 +127,10 @@ export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
         name: c.memberName,
         firstSeen: at,
         lastSeen: at,
+        eventIds: new Set([c.eventId]),
       });
     } else {
+      existing.eventIds.add(c.eventId);
       if (new Date(at) < new Date(existing.firstSeen))
         existing.firstSeen = at;
       if (new Date(at) > new Date(existing.lastSeen))
@@ -141,6 +143,7 @@ export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
     email: email.includes("@") ? email : undefined,
     firstSeen: v.firstSeen,
     lastSeen: v.lastSeen,
+    eventsAttended: v.eventIds.size,
   }));
 }
 
