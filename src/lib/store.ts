@@ -106,6 +106,7 @@ export const store = {
         email,
         firstSeen: now,
         lastSeen: now,
+        eventsAttended: 1,
       };
       all.push(member);
       save(MEMBERS_KEY, all);
