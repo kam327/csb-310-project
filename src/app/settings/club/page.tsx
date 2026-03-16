@@ -15,6 +15,7 @@ export default function ClubSettingsPage() {
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reminderDays, setReminderDays] = useState<string>("");
+  const [tracksDues, setTracksDues] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,6 +37,7 @@ export default function ClubSettingsPage() {
           if (c?.action_reminder_days != null) {
             setReminderDays(String(c.action_reminder_days));
           }
+          setTracksDues(c?.tracks_dues ?? false);
         }
       })
       .catch((err) => {
@@ -65,12 +67,12 @@ export default function ClubSettingsPage() {
     try {
       const { error: updateError } = await supabase
         .from("clubs")
-        .update({ action_reminder_days: days })
+        .update({ action_reminder_days: days, tracks_dues: tracksDues })
         .eq("id", club.id);
       if (updateError) {
         setError(updateError.message ?? "Failed to save settings.");
       } else {
-        setClub({ ...club, action_reminder_days: days });
+        setClub({ ...club, action_reminder_days: days, tracks_dues: tracksDues });
       }
     } catch (e) {
       setError((e as Error).message ?? "Failed to save settings.");
@@ -142,6 +144,34 @@ export default function ClubSettingsPage() {
         )}
 
         <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-5">
+          <h2 className="text-sm font-medium text-forest-300">Dues tracking</h2>
+          <p className="mt-1 text-xs text-forest-400">
+            When enabled, each member on the Members page will show whether
+            they&apos;ve paid club dues.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={tracksDues}
+              onClick={() => setTracksDues((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                tracksDues ? "bg-gauge-500" : "bg-forest-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  tracksDues ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm text-forest-300">
+              {tracksDues ? "Dues tracking enabled" : "Dues tracking disabled"}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-5">
           <h2 className="text-sm font-medium text-forest-300">
             Action item reminders
           </h2>
@@ -170,16 +200,16 @@ export default function ClubSettingsPage() {
           <p className="mt-1 text-xs text-forest-500">
             Leave blank to disable automatic reminders for this club.
           </p>
-          <button
-            type="button"
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="mt-4 inline-flex items-center justify-center rounded-lg bg-gauge-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save reminder settings"}
-          </button>
         </div>
 
+        <button
+          type="button"
+          onClick={handleSaveSettings}
+          disabled={saving}
+          className="inline-flex items-center justify-center rounded-lg bg-gauge-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save settings"}
+        </button>
       </div>
     </div>
   );

@@ -55,6 +55,20 @@ WHERE join_code IS NULL;
 -- Optional: per-club settings for action item reminders (days before due date)
 ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS action_reminder_days integer;
 
+-- Optional: per-club flag to enable dues tracking for members
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS tracks_dues boolean NOT NULL DEFAULT false;
+
+-- Track which members have paid dues (keyed by club + member email)
+CREATE TABLE IF NOT EXISTS public.member_dues (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  club_id uuid NOT NULL REFERENCES public.clubs (id) ON DELETE CASCADE,
+  member_email text NOT NULL,
+  dues_paid boolean NOT NULL DEFAULT false,
+  UNIQUE (club_id, member_email)
+);
+
+ALTER TABLE public.member_dues ENABLE ROW LEVEL SECURITY;
+
 -- Optional: store a start/end time for each event (local time-of-day)
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_time time without time zone;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_end_time time without time zone;
@@ -218,4 +232,48 @@ WITH CHECK (
     SELECT id FROM public.events
     WHERE club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
   )
+);
+
+-- ========== MEMBER DUES (club-scoped for auth) ==========
+DROP POLICY IF EXISTS "select member dues (club)" ON public.member_dues;
+CREATE POLICY "select member dues (club)"
+ON public.member_dues
+FOR SELECT
+TO authenticated
+USING (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "insert member dues (club)" ON public.member_dues;
+CREATE POLICY "insert member dues (club)"
+ON public.member_dues
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+);
+
+DROP POLICY IF EXISTS "update member dues (club)" ON public.member_dues;
+CREATE POLICY "update member dues (club)"
+ON public.member_dues
+FOR UPDATE
+TO authenticated
+USING (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+)
+WITH CHECK (
+  club_id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+);
+
+-- UPDATE policy for clubs (allows officers to toggle tracks_dues, reminder_days, etc.)
+DROP POLICY IF EXISTS "update clubs (authenticated)" ON public.clubs;
+CREATE POLICY "update clubs (authenticated)"
+ON public.clubs
+FOR UPDATE
+TO authenticated
+USING (
+  id = (SELECT club_id FROM public.users WHERE id = auth.uid())
+)
+WITH CHECK (
+  id = (SELECT club_id FROM public.users WHERE id = auth.uid())
 );

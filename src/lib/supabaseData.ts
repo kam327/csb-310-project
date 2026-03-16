@@ -167,6 +167,7 @@ export interface ClubSummary {
   university_name: string | null;
   action_reminder_days: number | null;
   join_code: string | null;
+  tracks_dues: boolean;
 }
 
 export interface ClubUserProfile {
@@ -182,7 +183,7 @@ export async function fetchClub(
   if (!clubId) return null;
   const { data, error } = await supabase
     .from("clubs")
-    .select("id, name, university_name, action_reminder_days, join_code")
+    .select("id, name, university_name, action_reminder_days, join_code, tracks_dues")
     .eq("id", clubId)
     .single();
   if (error || !data) {
@@ -231,6 +232,47 @@ export async function createCriticalActionItem(params: {
   });
   if (error) {
     console.error("[Gauge] createCriticalActionItem", error);
+    return { error };
+  }
+  return { error: null };
+}
+
+/** Fetch dues-paid status for all members in a club. Returns a map of email → dues_paid. */
+export async function fetchMemberDues(
+  clubId: string | null
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  if (!clubId) return map;
+  const { data, error } = await supabase
+    .from("member_dues")
+    .select("member_email, dues_paid")
+    .eq("club_id", clubId);
+  if (error) {
+    console.error("[Gauge] fetchMemberDues", error);
+    return map;
+  }
+  for (const row of data ?? []) {
+    map.set(row.member_email.toLowerCase().trim(), row.dues_paid);
+  }
+  return map;
+}
+
+/** Upsert dues-paid status for a member in a club. */
+export async function upsertMemberDues(params: {
+  clubId: string;
+  memberEmail: string;
+  duesPaid: boolean;
+}): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from("member_dues").upsert(
+    {
+      club_id: params.clubId,
+      member_email: params.memberEmail.toLowerCase().trim(),
+      dues_paid: params.duesPaid,
+    },
+    { onConflict: "club_id,member_email" }
+  );
+  if (error) {
+    console.error("[Gauge] upsertMemberDues", error);
     return { error };
   }
   return { error: null };
