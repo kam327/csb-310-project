@@ -44,3 +44,24 @@ export interface SavedMinutes {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface FeedbackSurvey {
+  id: string;
+  eventId: string;
+  question1?: string;
+  question2?: string;
+  question3?: string;
+  createdAt: string;
+}
+
+export interface SurveyResponse {
+  id: string;
+  surveyId: string;
+  rating: number; // 1–5
+  answer1?: string;
+  answer2?: string;
+  answer3?: string;
+  respondentName?: string;
+  respondentEmail?: string;
+  createdAt: string;
+}

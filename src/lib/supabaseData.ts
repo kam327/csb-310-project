@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import type { Event, CheckIn, Member } from "@/types";
+import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse } from "@/types";
 
 /** Map DB event row to app Event type */
 function toEvent(row: {
@@ -279,4 +279,144 @@ export async function upsertMemberDues(params: {
     return { error };
   }
   return { error: null };
+}
+
+/* ─── Feedback Surveys ─── */
+
+function toFeedbackSurvey(row: {
+  id: string;
+  event_id: string;
+  question_1: string | null;
+  question_2: string | null;
+  question_3: string | null;
+  created_at: string | null;
+}): FeedbackSurvey {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    question1: row.question_1 ?? undefined,
+    question2: row.question_2 ?? undefined,
+    question3: row.question_3 ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
+  };
+}
+
+function toSurveyResponse(row: {
+  id: string;
+  survey_id: string;
+  rating: number;
+  answer_1: string | null;
+  answer_2: string | null;
+  answer_3: string | null;
+  respondent_name: string | null;
+  respondent_email: string | null;
+  created_at: string | null;
+}): SurveyResponse {
+  return {
+    id: row.id,
+    surveyId: row.survey_id,
+    rating: row.rating,
+    answer1: row.answer_1 ?? undefined,
+    answer2: row.answer_2 ?? undefined,
+    answer3: row.answer_3 ?? undefined,
+    respondentName: row.respondent_name ?? undefined,
+    respondentEmail: row.respondent_email ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
+  };
+}
+
+/** Create a feedback survey for an event. */
+export async function createFeedbackSurvey(params: {
+  eventId: string;
+  question1?: string;
+  question2?: string;
+  question3?: string;
+}): Promise<{ data: FeedbackSurvey | null; error: Error | null }> {
+  const { data, error } = await supabase
+    .from("feedback_surveys")
+    .insert({
+      event_id: params.eventId,
+      question_1: params.question1?.trim() || null,
+      question_2: params.question2?.trim() || null,
+      question_3: params.question3?.trim() || null,
+    })
+    .select("id, event_id, question_1, question_2, question_3, created_at")
+    .single();
+  if (error || !data) {
+    console.error("[Gauge] createFeedbackSurvey", error);
+    return { data: null, error: error ?? new Error("No data returned") };
+  }
+  return { data: toFeedbackSurvey(data), error: null };
+}
+
+/** Fetch the feedback survey for an event (most recent if multiple). */
+export async function fetchSurveyForEvent(
+  eventId: string
+): Promise<FeedbackSurvey | null> {
+  const { data, error } = await supabase
+    .from("feedback_surveys")
+    .select("id, event_id, question_1, question_2, question_3, created_at")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return toFeedbackSurvey(data);
+}
+
+/** Fetch a survey by its own id (used on the public form page). */
+export async function fetchSurveyById(
+  surveyId: string
+): Promise<FeedbackSurvey | null> {
+  const { data, error } = await supabase
+    .from("feedback_surveys")
+    .select("id, event_id, question_1, question_2, question_3, created_at")
+    .eq("id", surveyId)
+    .single();
+  if (error || !data) return null;
+  return toFeedbackSurvey(data);
+}
+
+/** Submit a response to a feedback survey (public / anon). */
+export async function insertSurveyResponse(params: {
+  surveyId: string;
+  rating: number;
+  answer1?: string;
+  answer2?: string;
+  answer3?: string;
+  respondentName?: string;
+  respondentEmail?: string;
+}): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from("survey_responses").insert({
+    survey_id: params.surveyId,
+    rating: params.rating,
+    answer_1: params.answer1?.trim() || null,
+    answer_2: params.answer2?.trim() || null,
+    answer_3: params.answer3?.trim() || null,
+    respondent_name: params.respondentName?.trim() || null,
+    respondent_email: params.respondentEmail?.trim() || null,
+  });
+  if (error) {
+    console.error("[Gauge] insertSurveyResponse", error);
+    return { error };
+  }
+  return { error: null };
+}
+
+/** Fetch all responses for a survey. */
+export async function fetchSurveyResponses(
+  surveyId: string
+): Promise<SurveyResponse[]> {
+  const { data, error } = await supabase
+    .from("survey_responses")
+    .select(
+      "id, survey_id, rating, answer_1, answer_2, answer_3, respondent_name, respondent_email, created_at"
+    )
+    .eq("survey_id", surveyId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[Gauge] fetchSurveyResponses", error);
+    return [];
+  }
+  return (data ?? []).map(toSurveyResponse);
 }
