@@ -26,21 +26,12 @@ export interface Member {
   notes?: string;
 }
 
-export interface ExtractedMinutes {
-  date: string;
-  title: string;
-  attendees: string[];
-  keyDecisions: string[];
-  actionItems: { task: string; assignee?: string; due?: string }[];
-  nextMeeting?: string;
-  notes?: string;
-}
-
 export interface SavedMinutes {
   id: string;
-  eventId?: string; // optional link to an event
-  rawText?: string;
-  extracted: ExtractedMinutes;
+  title: string;
+  date: string; // ISO date (YYYY-MM-DD)
+  rawText: string;
+  eventId?: string;
   createdAt: string;
   updatedAt: string;
 }

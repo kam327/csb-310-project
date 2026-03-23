@@ -244,10 +244,9 @@ export default function HomePage() {
                   key={m.id}
                   className="rounded-lg border border-forest-800 bg-forest-800/80 px-4 py-3"
                 >
-                  <p className="font-medium text-white">{m.extracted.title}</p>
+                  <p className="font-medium text-white">{m.title}</p>
                   <p className="text-sm text-forest-400">
-                    {new Date(m.extracted.date).toLocaleDateString("en-US")} ·{" "}
-                    {m.extracted.attendees.length} attendees
+                    {new Date(m.date).toLocaleDateString("en-US")}
                   </p>
                 </li>
               ))}
