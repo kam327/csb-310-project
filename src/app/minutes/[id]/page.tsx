@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, CheckSquare } from "lucide-react";
-import { store } from "@/lib/store";
 import type { SavedMinutes } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 import {
+  fetchMinutesById,
   createCriticalActionItem,
   fetchClubUsers,
   type ClubUserProfile,
@@ -36,7 +36,11 @@ export default function MinutesDetailPage() {
   const [drafts, setDrafts] = useState<CriticalDraft[]>([]);
 
   useEffect(() => {
-    setMinutes(store.minutes.getById(id) ?? null);
+    let cancelled = false;
+    fetchMinutesById(id).then((m) => {
+      if (!cancelled) setMinutes(m);
+    });
+    return () => { cancelled = true; };
   }, [id]);
 
   const canCreateCritical =

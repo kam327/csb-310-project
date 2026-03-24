@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, Users, FileText, TrendingUp, ArrowRight } from "lucide-react";
-import { store } from "@/lib/store";
 import type { Event, CheckIn, SavedMinutes } from "@/types";
 import { EngagementTrendChart } from "@/components/EngagementTrendChart";
 import { EventAttendanceChart } from "@/components/EventAttendanceChart";
@@ -15,6 +14,7 @@ import {
   membersFromCheckIns,
   fetchClub,
   fetchClubUsers,
+  fetchMinutesForClub,
 } from "@/lib/supabaseData";
 
 export default function HomePage() {
@@ -35,12 +35,14 @@ export default function HomePage() {
         fetchAttendanceForClub(profile.club_id),
         fetchClub(profile.club_id),
         fetchClubUsers(profile.club_id),
-      ]).then(([evs, cis, club, users]) => {
+        fetchMinutesForClub(profile.club_id),
+      ]).then(([evs, cis, club, users, mins]) => {
         setEvents(evs);
         setCheckIns(cis);
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
         setClubUsers(users ?? []);
+        setMinutes(mins);
       });
     } else {
       setEvents([]);
@@ -48,13 +50,6 @@ export default function HomePage() {
       setMembersCount(0);
       setClubName(null);
       setClubUsers([]);
-    }
-  }, [profile?.club_id]);
-
-  useEffect(() => {
-    if (profile?.club_id) {
-      setMinutes(store.minutes.getByClubId(profile.club_id));
-    } else {
       setMinutes([]);
     }
   }, [profile?.club_id]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse } from "@/types";
+import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse, SavedMinutes } from "@/types";
 
 /** Map DB event row to app Event type */
 function toEvent(row: {
@@ -419,4 +419,108 @@ export async function fetchSurveyResponses(
     return [];
   }
   return (data ?? []).map(toSurveyResponse);
+}
+
+/* ─── Meeting Minutes ─── */
+
+function toMinutes(row: {
+  id: string;
+  club_id: string;
+  title: string;
+  meeting_date: string;
+  raw_text: string;
+  event_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}): SavedMinutes {
+  return {
+    id: row.id,
+    clubId: row.club_id,
+    title: row.title,
+    date: String(row.meeting_date).slice(0, 10),
+    rawText: row.raw_text,
+    eventId: row.event_id ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  };
+}
+
+const MINUTES_COLUMNS =
+  "id, club_id, title, meeting_date, raw_text, event_id, created_at, updated_at";
+
+/** Fetch all meeting minutes for a club. */
+export async function fetchMinutesForClub(
+  clubId: string | null
+): Promise<SavedMinutes[]> {
+  if (!clubId) return [];
+  const { data, error } = await supabase
+    .from("meeting_minutes")
+    .select(MINUTES_COLUMNS)
+    .eq("club_id", clubId)
+    .order("meeting_date", { ascending: false });
+  if (error) {
+    console.error("[Gauge] fetchMinutesForClub", error);
+    return [];
+  }
+  return (data ?? []).map(toMinutes);
+}
+
+/** Fetch a single meeting minutes record by id. */
+export async function fetchMinutesById(
+  id: string
+): Promise<SavedMinutes | null> {
+  const { data, error } = await supabase
+    .from("meeting_minutes")
+    .select(MINUTES_COLUMNS)
+    .eq("id", id)
+    .single();
+  if (error || !data) return null;
+  return toMinutes(data);
+}
+
+/** Insert new meeting minutes. */
+export async function insertMinutes(params: {
+  clubId: string;
+  title: string;
+  date: string;
+  rawText: string;
+  eventId?: string;
+}): Promise<{ data: SavedMinutes | null; error: Error | null }> {
+  const { data, error } = await supabase
+    .from("meeting_minutes")
+    .insert({
+      club_id: params.clubId,
+      title: params.title.trim(),
+      meeting_date: params.date,
+      raw_text: params.rawText.trim(),
+      event_id: params.eventId ?? null,
+    })
+    .select(MINUTES_COLUMNS)
+    .single();
+  if (error || !data) {
+    console.error("[Gauge] insertMinutes", error);
+    return { data: null, error: error ?? new Error("No data returned") };
+  }
+  return { data: toMinutes(data), error: null };
+}
+
+/** Update an existing meeting minutes record. */
+export async function updateMinutes(
+  id: string,
+  params: { title?: string; date?: string; rawText?: string }
+): Promise<{ error: Error | null }> {
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (params.title !== undefined) updates.title = params.title.trim();
+  if (params.date !== undefined) updates.meeting_date = params.date;
+  if (params.rawText !== undefined) updates.raw_text = params.rawText.trim();
+
+  const { error } = await supabase
+    .from("meeting_minutes")
+    .update(updates)
+    .eq("id", id);
+  if (error) {
+    console.error("[Gauge] updateMinutes", error);
+    return { error };
+  }
+  return { error: null };
 }

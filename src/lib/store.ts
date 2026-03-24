@@ -1,11 +1,10 @@
 "use client";
 
-import type { Event, CheckIn, Member, SavedMinutes } from "@/types";
+import type { Event, CheckIn, Member } from "@/types";
 
 const EVENTS_KEY = "club-continuity-events";
 const CHECK_INS_KEY = "club-continuity-checkins";
 const MEMBERS_KEY = "club-continuity-members";
-const MINUTES_KEY = "club-continuity-minutes";
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -34,9 +33,6 @@ function checkIns(): CheckIn[] {
 }
 function members(): Member[] {
   return load(MEMBERS_KEY, []);
-}
-function minutes(): SavedMinutes[] {
-  return load(MINUTES_KEY, []);
 }
 
 export const store = {
@@ -114,26 +110,6 @@ export const store = {
     },
   },
 
-  minutes: {
-    getAll: (): SavedMinutes[] => minutes(),
-    getByClubId: (clubId: string): SavedMinutes[] =>
-      minutes().filter((m) => m.clubId === clubId),
-    add: (minutesData: SavedMinutes) => {
-      const all = load<SavedMinutes[]>(MINUTES_KEY, []);
-      all.unshift(minutesData);
-      save(MINUTES_KEY, all);
-    },
-    update: (id: string, updates: Partial<SavedMinutes>) => {
-      const all = load<SavedMinutes[]>(MINUTES_KEY, []);
-      const i = all.findIndex((m) => m.id === id);
-      if (i >= 0) {
-        all[i] = { ...all[i], ...updates };
-        save(MINUTES_KEY, all);
-      }
-    },
-    getById: (id: string): SavedMinutes | undefined =>
-      minutes().find((m) => m.id === id),
-  },
 };
 
 export function generateId(): string {

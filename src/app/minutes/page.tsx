@@ -9,11 +9,12 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { store, generateId } from "@/lib/store";
 import type { SavedMinutes } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 import {
   fetchClubUsers,
+  fetchMinutesForClub,
+  insertMinutes,
   createCriticalActionItem,
   type ClubUserProfile,
 } from "@/lib/supabaseData";
@@ -36,30 +37,42 @@ export default function MinutesPage() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rawText, setRawText] = useState("");
+  const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const { profile } = useAuth();
   const [users, setUsers] = useState<ClubUserProfile[]>([]);
   const [drafts, setDrafts] = useState<CriticalDraft[]>([]);
+  const [allMinutes, setAllMinutes] = useState<SavedMinutes[]>([]);
 
-  const handleSave = () => {
-    if (!rawText.trim()) return;
-    const saved: SavedMinutes = {
-      id: generateId(),
-      clubId: profile?.club_id ?? undefined,
+  useEffect(() => {
+    if (!profile?.club_id) {
+      setAllMinutes([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMinutesForClub(profile.club_id).then((list) => {
+      if (!cancelled) setAllMinutes(list);
+    });
+    return () => { cancelled = true; };
+  }, [profile?.club_id]);
+
+  const handleSave = async () => {
+    if (!rawText.trim() || !profile?.club_id) return;
+    setSaving(true);
+    const { data: saved, error } = await insertMinutes({
+      clubId: profile.club_id,
       title: title.trim() || "Meeting notes",
       date,
       rawText: rawText.trim(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    store.minutes.add(saved);
+    });
+    setSaving(false);
+    if (error || !saved) {
+      console.error("[Gauge] failed to save minutes", error);
+      return;
+    }
     setSavedId(saved.id);
+    setAllMinutes((prev) => [saved, ...prev]);
   };
-
-  const allMinutes =
-    typeof window !== "undefined" && profile?.club_id
-      ? store.minutes.getByClubId(profile.club_id)
-      : [];
 
   const canCreateCritical =
     Boolean(profile?.role === "officer" && profile.club_id);
@@ -234,11 +247,11 @@ export default function MinutesPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!rawText.trim() || !!savedId}
+          disabled={!rawText.trim() || !!savedId || saving}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-3 font-semibold text-slate-900 transition hover:bg-brand-400 disabled:opacity-50"
         >
           <Save className="h-5 w-5" />
-          {savedId ? "Saved \u2713" : "Save meeting notes"}
+          {savedId ? "Saved \u2713" : saving ? "Saving\u2026" : "Save meeting notes"}
         </button>
       </section>
 
