@@ -116,6 +116,8 @@ export const store = {
 
   minutes: {
     getAll: (): SavedMinutes[] => minutes(),
+    getByClubId: (clubId: string): SavedMinutes[] =>
+      minutes().filter((m) => m.clubId === clubId),
     add: (minutesData: SavedMinutes) => {
       const all = load<SavedMinutes[]>(MINUTES_KEY, []);
       all.unshift(minutesData);

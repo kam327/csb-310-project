@@ -52,8 +52,12 @@ export default function HomePage() {
   }, [profile?.club_id]);
 
   useEffect(() => {
-    setMinutes(store.minutes.getAll());
-  }, []);
+    if (profile?.club_id) {
+      setMinutes(store.minutes.getByClubId(profile.club_id));
+    } else {
+      setMinutes([]);
+    }
+  }, [profile?.club_id]);
 
   const now = new Date();
   const upcomingEvents = events

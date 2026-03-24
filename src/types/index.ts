@@ -28,6 +28,7 @@ export interface Member {
 
 export interface SavedMinutes {
   id: string;
+  clubId?: string;
   title: string;
   date: string; // ISO date (YYYY-MM-DD)
   rawText: string;

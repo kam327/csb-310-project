@@ -45,6 +45,7 @@ export default function MinutesPage() {
     if (!rawText.trim()) return;
     const saved: SavedMinutes = {
       id: generateId(),
+      clubId: profile?.club_id ?? undefined,
       title: title.trim() || "Meeting notes",
       date,
       rawText: rawText.trim(),
@@ -55,7 +56,10 @@ export default function MinutesPage() {
     setSavedId(saved.id);
   };
 
-  const allMinutes = typeof window !== "undefined" ? store.minutes.getAll() : [];
+  const allMinutes =
+    typeof window !== "undefined" && profile?.club_id
+      ? store.minutes.getByClubId(profile.club_id)
+      : [];
 
   const canCreateCritical =
     Boolean(profile?.role === "officer" && profile.club_id);
