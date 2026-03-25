@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "Gauge – Data-driven club management",
   description:
     "Consolidate attendance, events, and meeting minutes so your club thrives across leadership transitions.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
