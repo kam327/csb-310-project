@@ -240,6 +240,66 @@ export async function createCriticalActionItem(params: {
   return { error: null };
 }
 
+function toCriticalActionItem(row: {
+  id: string;
+  club_id: string;
+  task: string;
+  assignee_email: string;
+  due_date: string;
+  created_at: string | null;
+  reminder_sent: boolean | null;
+}): CriticalActionItem {
+  return {
+    id: row.id,
+    clubId: row.club_id,
+    task: row.task,
+    assigneeEmail: row.assignee_email,
+    dueDate: row.due_date,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    reminderSent: Boolean(row.reminder_sent),
+  };
+}
+
+/** Fetch existing critical action items for a club. Used to keep UI persistent across refresh/navigation. */
+export async function fetchCriticalActionItems(
+  clubId: string | null
+): Promise<CriticalActionItem[]> {
+  if (!clubId) return [];
+
+  const { data, error } = await supabase
+    .from("critical_action_items")
+    .select(
+      "id, club_id, task, assignee_email, due_date, created_at, reminder_sent"
+    )
+    .eq("club_id", clubId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[Gauge] fetchCriticalActionItems", error);
+    return [];
+  }
+
+  return (data ?? []).map(toCriticalActionItem);
+}
+
+/** Delete a critical action item. */
+export async function deleteCriticalActionItem(params: {
+  clubId: string;
+  id: string;
+}): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from("critical_action_items")
+    .delete()
+    .eq("id", params.id)
+    .eq("club_id", params.clubId);
+
+  if (error) {
+    console.error("[Gauge] deleteCriticalActionItem", error);
+    return { error };
+  }
+  return { error: null };
+}
+
 /** Fetch dues-paid status for all members in a club. Returns a map of email → dues_paid. */
 export async function fetchMemberDues(
   clubId: string | null

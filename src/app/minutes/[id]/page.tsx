@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, CheckSquare } from "lucide-react";
+import { ArrowLeft, Calendar, CheckSquare, X } from "lucide-react";
 import type { SavedMinutes } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 import {
   fetchMinutesById,
   createCriticalActionItem,
   fetchClubUsers,
+  fetchCriticalActionItems,
+  deleteCriticalActionItem,
   type ClubUserProfile,
 } from "@/lib/supabaseData";
 
@@ -34,6 +36,9 @@ export default function MinutesDetailPage() {
   const { profile } = useAuth();
   const [users, setUsers] = useState<ClubUserProfile[]>([]);
   const [drafts, setDrafts] = useState<CriticalDraft[]>([]);
+  const [deletingCriticalId, setDeletingCriticalId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +69,26 @@ export default function MinutesDetailPage() {
     };
   }, [canCreateCritical, profile?.club_id]);
 
+  // Hydrate persisted critical tasks from Supabase so they don't disappear on refresh/navigation.
+  useEffect(() => {
+    if (!canCreateCritical || !profile?.club_id) return;
+    if (drafts.length > 0) return; // keep any in-progress unsaved drafts
+
+    fetchCriticalActionItems(profile.club_id).then((items) => {
+      setDrafts(
+        (items ?? []).map((item) => ({
+          key: item.id,
+          task: item.task,
+          assigneeId: "",
+          dueDate: item.dueDate ?? "",
+          saving: false,
+          error: null,
+          saved: true,
+        }))
+      );
+    });
+  }, [canCreateCritical, profile?.club_id, drafts.length]);
+
   const updateDraft = (key: string, patch: Partial<CriticalDraft>) => {
     setDrafts((prev) =>
       prev.map((d) => (d.key === key ? { ...d, ...patch } : d))
@@ -72,6 +97,30 @@ export default function MinutesDetailPage() {
 
   const removeDraft = (key: string) => {
     setDrafts((prev) => prev.filter((d) => d.key !== key));
+  };
+
+  const handleDeleteCriticalDraft = async (key: string) => {
+    if (!profile?.club_id) return;
+    setDeletingCriticalId(key);
+    try {
+      const { error } = await deleteCriticalActionItem({
+        clubId: profile.club_id,
+        id: key,
+      });
+      if (error) {
+        updateDraft(key, {
+          error: error.message ?? "Failed to delete critical task.",
+        });
+        return;
+      }
+      removeDraft(key);
+    } catch (err) {
+      updateDraft(key, {
+        error: (err as Error).message ?? "Failed to delete critical task.",
+      });
+    } finally {
+      setDeletingCriticalId(null);
+    }
   };
 
   const addBlankDraft = () => {
@@ -184,7 +233,7 @@ export default function MinutesDetailPage() {
       </div>
 
       {/* Critical tasks */}
-      {canCreateCritical && users.length > 0 && (
+      {canCreateCritical && (
         <section className="mt-8 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
             <CheckSquare className="h-5 w-5 text-gauge-400" />
@@ -195,8 +244,14 @@ export default function MinutesDetailPage() {
             reminders.
           </p>
 
-          <div className="mt-4 space-y-4">
-            {drafts.map((draft) => (
+          {users.length === 0 && !drafts.some((d) => d.saved) ? (
+            <p className="mt-4 text-sm text-forest-400">
+              No club users found yet. Critical tasks can be assigned once
+              users have joined your club.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {drafts.map((draft) => (
               <div
                 key={draft.key}
                 className={`rounded-lg border p-4 ${
@@ -206,14 +261,29 @@ export default function MinutesDetailPage() {
                 }`}
               >
                 {draft.saved ? (
-                  <p className="flex items-center gap-2 text-sm text-green-400">
-                    <CheckSquare className="h-4 w-4" /> Saved
-                    {draft.task && (
-                      <span className="text-forest-300">
-                        &mdash; {draft.task}
-                      </span>
-                    )}
-                  </p>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex min-w-0 items-center gap-2 text-green-400">
+                      <CheckSquare className="h-4 w-4" />
+                      <span className="shrink-0 font-medium">Saved</span>
+                      {draft.task && (
+                        <span className="min-w-0 truncate text-forest-300">
+                          &mdash; {draft.task}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCriticalDraft(draft.key)}
+                      disabled={deletingCriticalId === draft.key}
+                      className="inline-flex items-center rounded-lg border border-red-500/60 bg-forest-800/30 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:border-red-400 hover:bg-forest-800 disabled:opacity-50"
+                      title="Delete critical task"
+                    >
+                      {deletingCriticalId === draft.key
+                        ? "Deleting\u2026"
+                        : "Delete"}
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -293,17 +363,18 @@ export default function MinutesDetailPage() {
                   </div>
                 )}
               </div>
-            ))}
+              ))}
 
-            <button
-              type="button"
-              onClick={addBlankDraft}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-400"
-            >
-              <CheckSquare className="h-4 w-4" />
-              Add critical task
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={addBlankDraft}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-400"
+              >
+                <CheckSquare className="h-4 w-4" />
+                Add critical task
+              </button>
+            </div>
+          )}
         </section>
       )}
     </div>
