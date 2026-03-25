@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Plus,
   X,
+  Sparkles,
 } from "lucide-react";
 import type { SavedMinutes } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
@@ -33,12 +34,42 @@ function makeKey() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function formatExtractedMinutes(minutes: {
+  summary: string;
+  decisions: string[];
+  actionItems: string[];
+  nextSteps: string[];
+}): string {
+  const blocks: string[] = [];
+  if (minutes.summary?.trim()) {
+    blocks.push(`Summary\n\n${minutes.summary.trim()}`);
+  }
+  if (minutes.decisions?.length) {
+    blocks.push(
+      `Decisions\n\n${minutes.decisions.map((d) => `• ${d}`).join("\n")}`
+    );
+  }
+  if (minutes.actionItems?.length) {
+    blocks.push(
+      `Action items\n\n${minutes.actionItems.map((d) => `• ${d}`).join("\n")}`
+    );
+  }
+  if (minutes.nextSteps?.length) {
+    blocks.push(
+      `Next steps\n\n${minutes.nextSteps.map((d) => `• ${d}`).join("\n")}`
+    );
+  }
+  return blocks.join("\n\n");
+}
+
 export default function MinutesPage() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rawText, setRawText] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
   const { profile } = useAuth();
   const [users, setUsers] = useState<ClubUserProfile[]>([]);
   const [drafts, setDrafts] = useState<CriticalDraft[]>([]);
@@ -72,6 +103,39 @@ export default function MinutesPage() {
     }
     setSavedId(saved.id);
     setAllMinutes((prev) => [saved, ...prev]);
+  };
+
+  const handleExtractWithAi = async () => {
+    const notes = rawText.trim();
+    if (!notes) return;
+    setExtractError(null);
+    setExtracting(true);
+    try {
+      const res = await fetch("/api/extract-minutes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawNotes: notes }),
+      });
+      const data = (await res.json()) as {
+        extracted?: {
+          summary: string;
+          decisions: string[];
+          actionItems: string[];
+          nextSteps: string[];
+        };
+        error?: string;
+      };
+      if (!res.ok || !data.extracted) {
+        setExtractError(data.error ?? "Could not extract notes.");
+        return;
+      }
+      setRawText(formatExtractedMinutes(data.extracted));
+      if (savedId) setSavedId(null);
+    } catch {
+      setExtractError("Network error. Try again.");
+    } finally {
+      setExtracting(false);
+    }
   };
 
   const canCreateCritical =
@@ -237,12 +301,26 @@ export default function MinutesPage() {
             onChange={(e) => {
               setRawText(e.target.value);
               if (savedId) setSavedId(null);
+              if (extractError) setExtractError(null);
             }}
             placeholder="Paste or type your meeting notes here..."
             rows={12}
             className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-3 font-mono text-sm text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
           />
+          {extractError && (
+            <p className="mt-2 text-sm text-red-400">{extractError}</p>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={handleExtractWithAi}
+          disabled={!rawText.trim() || extracting}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-gauge-500/60 bg-forest-800/80 px-4 py-3 font-semibold text-gauge-300 transition hover:border-gauge-400 hover:bg-forest-800 disabled:opacity-50"
+        >
+          <Sparkles className="h-5 w-5" />
+          {extracting ? "Extracting\u2026" : "Extract with AI"}
+        </button>
 
         <button
           type="button"
