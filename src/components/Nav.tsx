@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Users, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, CheckSquare, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 
 const links = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/events", label: "Events", icon: Calendar },
   { href: "/members", label: "Members", icon: Users },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
 ];
 
 export function Nav() {
