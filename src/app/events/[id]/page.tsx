@@ -213,42 +213,56 @@ export default function EventDetailPage() {
     }
 
     updateDraft(key, { saving: true, error: null });
-    const { error } = await createCriticalActionItem({
-      clubId: profile.club_id,
-      eventId: id,
-      task: draft.task.trim(),
-      assigneeEmail: assignee.email,
-      dueDate: draft.dueDate,
-    });
-    if (error) {
-      updateDraft(key, { saving: false, error: error.message ?? "Failed to create task." });
-    } else {
-      removeDraft(key);
-      fetchCriticalActionItems(profile.club_id, id).then(setTasks);
+    try {
+      const { error } = await createCriticalActionItem({
+        clubId: profile.club_id,
+        eventId: id,
+        task: draft.task.trim(),
+        assigneeEmail: assignee.email,
+        dueDate: draft.dueDate,
+      });
+      if (error) {
+        updateDraft(key, { saving: false, error: error.message ?? "Failed to create task." });
+      } else {
+        removeDraft(key);
+        fetchCriticalActionItems(profile.club_id, id).then(setTasks);
+      }
+    } catch (e) {
+      updateDraft(key, { saving: false, error: (e as Error).message ?? "Failed to create task." });
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!profile?.club_id) return;
     setDeletingTaskId(taskId);
-    const { error } = await deleteCriticalActionItem({ clubId: profile.club_id, id: taskId });
-    setDeletingTaskId(null);
-    if (!error) {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    try {
+      const { error } = await deleteCriticalActionItem({ clubId: profile.club_id, id: taskId });
+      if (!error) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setDeletingTaskId(null);
     }
   };
 
   const handleToggleCompleted = async (task: CriticalActionItem) => {
     setTogglingTaskId(task.id);
-    const { error } = await toggleCriticalActionItemCompleted({
-      id: task.id,
-      completed: !task.completed,
-    });
-    setTogglingTaskId(null);
-    if (!error) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t))
-      );
+    try {
+      const { error } = await toggleCriticalActionItemCompleted({
+        id: task.id,
+        completed: !task.completed,
+      });
+      if (!error) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t))
+        );
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setTogglingTaskId(null);
     }
   };
 

@@ -68,16 +68,21 @@ export default function ClubSettingsPage() {
     if (!newCategoryName.trim() || !profile?.club_id) return;
     setAddingCategory(true);
     setCategoryError(null);
-    const { data, error: err } = await createEventCategory({
-      clubId: profile.club_id,
-      name: newCategoryName.trim(),
-    });
-    setAddingCategory(false);
-    if (err) {
-      setCategoryError(err.message ?? "Failed to add category.");
-    } else if (data) {
-      setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewCategoryName("");
+    try {
+      const { data, error: err } = await createEventCategory({
+        clubId: profile.club_id,
+        name: newCategoryName.trim(),
+      });
+      if (err) {
+        setCategoryError(err.message ?? "Failed to add category.");
+      } else if (data) {
+        setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+        setNewCategoryName("");
+      }
+    } catch (e) {
+      setCategoryError((e as Error).message ?? "Failed to add category. Make sure the migration SQL has been run in Supabase.");
+    } finally {
+      setAddingCategory(false);
     }
   };
 
@@ -85,12 +90,17 @@ export default function ClubSettingsPage() {
     if (!profile?.club_id) return;
     setDeletingCategoryId(catId);
     setCategoryError(null);
-    const { error: err } = await deleteEventCategory({ clubId: profile.club_id, id: catId });
-    setDeletingCategoryId(null);
-    if (err) {
-      setCategoryError(err.message ?? "Failed to delete category.");
-    } else {
-      setCategories((prev) => prev.filter((c) => c.id !== catId));
+    try {
+      const { error: err } = await deleteEventCategory({ clubId: profile.club_id, id: catId });
+      if (err) {
+        setCategoryError(err.message ?? "Failed to delete category.");
+      } else {
+        setCategories((prev) => prev.filter((c) => c.id !== catId));
+      }
+    } catch (e) {
+      setCategoryError((e as Error).message ?? "Failed to delete category.");
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
