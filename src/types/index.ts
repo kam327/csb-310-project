@@ -5,6 +5,7 @@ export interface Event {
   time?: string; // optional start time, "HH:MM" (24h) local
   endTime?: string; // optional end time, "HH:MM" (24h) local
   description?: string;
+  category?: string;
   createdAt: string;
 }
 
@@ -24,17 +25,6 @@ export interface Member {
   lastSeen?: string;
   eventsAttended: number;
   notes?: string;
-}
-
-export interface SavedMinutes {
-  id: string;
-  clubId: string;
-  title: string;
-  date: string; // ISO date (YYYY-MM-DD)
-  rawText: string;
-  eventId?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface FeedbackSurvey {

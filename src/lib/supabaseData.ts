@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse, SavedMinutes } from "@/types";
+import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse } from "@/types";
 
 /** Map DB event row to app Event type */
 function toEvent(row: {
@@ -11,6 +11,7 @@ function toEvent(row: {
   event_date: string | null;
   event_time: string | null;
   event_end_time: string | null;
+  category: string | null;
   created_at: string | null;
 }): Event {
   const date = row.event_date
@@ -25,6 +26,7 @@ function toEvent(row: {
     time,
     endTime,
     description: row.description ?? undefined,
+    category: row.category ?? undefined,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
@@ -51,7 +53,7 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
   if (!clubId) return [];
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, event_time, event_end_time, created_at")
+    .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
     .eq("club_id", clubId)
     .order("event_date", { ascending: false });
   if (error) {
@@ -65,7 +67,7 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
 export async function fetchEventById(eventId: string): Promise<Event | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, event_time, event_end_time, created_at")
+    .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
     .eq("id", eventId)
     .single();
   if (error || !data) return null;
@@ -214,21 +216,25 @@ export async function fetchClubUsers(
 export interface CriticalActionItem {
   id: string;
   clubId: string;
+  eventId: string | null;
   task: string;
   assigneeEmail: string;
   dueDate: string; // ISO date (YYYY-MM-DD)
+  completed: boolean;
   createdAt: string;
   reminderSent: boolean;
 }
 
 export async function createCriticalActionItem(params: {
   clubId: string;
+  eventId: string;
   task: string;
   assigneeEmail: string;
   dueDate: string;
 }): Promise<{ error: Error | null }> {
   const { error } = await supabase.from("critical_action_items").insert({
     club_id: params.clubId,
+    event_id: params.eventId,
     task: params.task,
     assignee_email: params.assigneeEmail.trim(),
     due_date: params.dueDate,
@@ -243,36 +249,46 @@ export async function createCriticalActionItem(params: {
 function toCriticalActionItem(row: {
   id: string;
   club_id: string;
+  event_id: string | null;
   task: string;
   assignee_email: string;
   due_date: string;
+  completed: boolean | null;
   created_at: string | null;
   reminder_sent: boolean | null;
 }): CriticalActionItem {
   return {
     id: row.id,
     clubId: row.club_id,
+    eventId: row.event_id,
     task: row.task,
     assigneeEmail: row.assignee_email,
     dueDate: row.due_date,
+    completed: Boolean(row.completed),
     createdAt: row.created_at ?? new Date().toISOString(),
     reminderSent: Boolean(row.reminder_sent),
   };
 }
 
-/** Fetch existing critical action items for a club. Used to keep UI persistent across refresh/navigation. */
+/** Fetch critical action items for a club, optionally filtered by event. */
 export async function fetchCriticalActionItems(
-  clubId: string | null
+  clubId: string | null,
+  eventId?: string
 ): Promise<CriticalActionItem[]> {
   if (!clubId) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("critical_action_items")
     .select(
-      "id, club_id, task, assignee_email, due_date, created_at, reminder_sent"
+      "id, club_id, event_id, task, assignee_email, due_date, completed, created_at, reminder_sent"
     )
-    .eq("club_id", clubId)
-    .order("created_at", { ascending: false });
+    .eq("club_id", clubId);
+
+  if (eventId) {
+    query = query.eq("event_id", eventId);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     console.error("[Gauge] fetchCriticalActionItems", error);
@@ -280,6 +296,22 @@ export async function fetchCriticalActionItems(
   }
 
   return (data ?? []).map(toCriticalActionItem);
+}
+
+/** Toggle the completed status of a critical action item. */
+export async function toggleCriticalActionItemCompleted(params: {
+  id: string;
+  completed: boolean;
+}): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from("critical_action_items")
+    .update({ completed: params.completed })
+    .eq("id", params.id);
+  if (error) {
+    console.error("[Gauge] toggleCriticalActionItemCompleted", error);
+    return { error };
+  }
+  return { error: null };
 }
 
 /** Delete a critical action item. */
@@ -481,105 +513,60 @@ export async function fetchSurveyResponses(
   return (data ?? []).map(toSurveyResponse);
 }
 
-/* ─── Meeting Minutes ─── */
+/* ─── Event Categories ─── */
 
-function toMinutes(row: {
+export interface EventCategory {
   id: string;
-  club_id: string;
-  title: string;
-  meeting_date: string;
-  raw_text: string;
-  event_id: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-}): SavedMinutes {
-  return {
-    id: row.id,
-    clubId: row.club_id,
-    title: row.title,
-    date: String(row.meeting_date).slice(0, 10),
-    rawText: row.raw_text,
-    eventId: row.event_id ?? undefined,
-    createdAt: row.created_at ?? new Date().toISOString(),
-    updatedAt: row.updated_at ?? new Date().toISOString(),
-  };
+  clubId: string;
+  name: string;
 }
 
-const MINUTES_COLUMNS =
-  "id, club_id, title, meeting_date, raw_text, event_id, created_at, updated_at";
-
-/** Fetch all meeting minutes for a club. */
-export async function fetchMinutesForClub(
+/** Fetch all event categories for a club. */
+export async function fetchEventCategories(
   clubId: string | null
-): Promise<SavedMinutes[]> {
+): Promise<EventCategory[]> {
   if (!clubId) return [];
   const { data, error } = await supabase
-    .from("meeting_minutes")
-    .select(MINUTES_COLUMNS)
+    .from("event_categories")
+    .select("id, club_id, name")
     .eq("club_id", clubId)
-    .order("meeting_date", { ascending: false });
+    .order("name", { ascending: true });
   if (error) {
-    console.error("[Gauge] fetchMinutesForClub", error);
+    console.error("[Gauge] fetchEventCategories", error);
     return [];
   }
-  return (data ?? []).map(toMinutes);
+  return (data ?? []).map((r) => ({ id: r.id, clubId: r.club_id, name: r.name }));
 }
 
-/** Fetch a single meeting minutes record by id. */
-export async function fetchMinutesById(
-  id: string
-): Promise<SavedMinutes | null> {
-  const { data, error } = await supabase
-    .from("meeting_minutes")
-    .select(MINUTES_COLUMNS)
-    .eq("id", id)
-    .single();
-  if (error || !data) return null;
-  return toMinutes(data);
-}
-
-/** Insert new meeting minutes. */
-export async function insertMinutes(params: {
+/** Create a new event category for a club. */
+export async function createEventCategory(params: {
   clubId: string;
-  title: string;
-  date: string;
-  rawText: string;
-  eventId?: string;
-}): Promise<{ data: SavedMinutes | null; error: Error | null }> {
+  name: string;
+}): Promise<{ data: EventCategory | null; error: Error | null }> {
   const { data, error } = await supabase
-    .from("meeting_minutes")
-    .insert({
-      club_id: params.clubId,
-      title: params.title.trim(),
-      meeting_date: params.date,
-      raw_text: params.rawText.trim(),
-      event_id: params.eventId ?? null,
-    })
-    .select(MINUTES_COLUMNS)
+    .from("event_categories")
+    .insert({ club_id: params.clubId, name: params.name.trim() })
+    .select("id, club_id, name")
     .single();
   if (error || !data) {
-    console.error("[Gauge] insertMinutes", error);
+    console.error("[Gauge] createEventCategory", error);
     return { data: null, error: error ?? new Error("No data returned") };
   }
-  return { data: toMinutes(data), error: null };
+  return { data: { id: data.id, clubId: data.club_id, name: data.name }, error: null };
 }
 
-/** Update an existing meeting minutes record. */
-export async function updateMinutes(
-  id: string,
-  params: { title?: string; date?: string; rawText?: string }
-): Promise<{ error: Error | null }> {
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (params.title !== undefined) updates.title = params.title.trim();
-  if (params.date !== undefined) updates.meeting_date = params.date;
-  if (params.rawText !== undefined) updates.raw_text = params.rawText.trim();
-
+/** Delete an event category. */
+export async function deleteEventCategory(params: {
+  clubId: string;
+  id: string;
+}): Promise<{ error: Error | null }> {
   const { error } = await supabase
-    .from("meeting_minutes")
-    .update(updates)
-    .eq("id", id);
+    .from("event_categories")
+    .delete()
+    .eq("id", params.id)
+    .eq("club_id", params.clubId);
   if (error) {
-    console.error("[Gauge] updateMinutes", error);
+    console.error("[Gauge] deleteEventCategory", error);
     return { error };
   }
   return { error: null };

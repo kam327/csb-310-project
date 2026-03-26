@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, Users, FileText, TrendingUp, ArrowRight } from "lucide-react";
-import type { Event, CheckIn, SavedMinutes } from "@/types";
+import { Calendar, Users, CheckSquare, TrendingUp, ArrowRight } from "lucide-react";
+import type { Event, CheckIn } from "@/types";
 import { EngagementTrendChart } from "@/components/EngagementTrendChart";
 import { EventAttendanceChart } from "@/components/EventAttendanceChart";
 import { DayOfWeekHeatmap } from "@/components/DayOfWeekHeatmap";
@@ -14,14 +14,14 @@ import {
   membersFromCheckIns,
   fetchClub,
   fetchClubUsers,
-  fetchMinutesForClub,
+  fetchCriticalActionItems,
 } from "@/lib/supabaseData";
 
 export default function HomePage() {
   const { profile } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [minutes, setMinutes] = useState<SavedMinutes[]>([]);
+  const [openTasksCount, setOpenTasksCount] = useState(0);
   const [membersCount, setMembersCount] = useState(0);
   const [clubName, setClubName] = useState<string | null>(null);
   const [clubUsers, setClubUsers] = useState<
@@ -35,14 +35,14 @@ export default function HomePage() {
         fetchAttendanceForClub(profile.club_id),
         fetchClub(profile.club_id),
         fetchClubUsers(profile.club_id),
-        fetchMinutesForClub(profile.club_id),
-      ]).then(([evs, cis, club, users, mins]) => {
+        fetchCriticalActionItems(profile.club_id),
+      ]).then(([evs, cis, club, users, tasks]) => {
         setEvents(evs);
         setCheckIns(cis);
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
         setClubUsers(users ?? []);
-        setMinutes(mins);
+        setOpenTasksCount(tasks.filter((t) => !t.completed).length);
       });
     } else {
       setEvents([]);
@@ -50,7 +50,7 @@ export default function HomePage() {
       setMembersCount(0);
       setClubName(null);
       setClubUsers([]);
-      setMinutes([]);
+      setOpenTasksCount(0);
     }
   }, [profile?.club_id]);
 
@@ -64,7 +64,6 @@ export default function HomePage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 3);
   const totalCheckIns = checkIns.length;
-  const recentMinutes = minutes.slice(0, 3);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -135,10 +134,9 @@ export default function HomePage() {
           value={totalCheckIns}
         />
         <StatCard
-          icon={FileText}
-          label="Meeting minutes"
-          value={minutes.length}
-          href="/minutes"
+          icon={CheckSquare}
+          label="Open tasks"
+          value={openTasksCount}
         />
       </div>
 
@@ -225,31 +223,13 @@ export default function HomePage() {
         </section>
 
         <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Recent minutes</h2>
-            <Link
-              href="/minutes"
-              className="text-sm font-medium text-gauge-400 hover:text-gauge-300"
-            >
-              View all
-            </Link>
-          </div>
-          {recentMinutes.length === 0 ? (
-            <p className="mt-4 text-forest-400">No meeting minutes yet.</p>
+          <h2 className="text-lg font-semibold text-white">Open tasks</h2>
+          {openTasksCount === 0 ? (
+            <p className="mt-4 text-forest-400">No open tasks. Create tasks from event pages.</p>
           ) : (
-            <ul className="mt-4 space-y-3">
-              {recentMinutes.map((m) => (
-                <li
-                  key={m.id}
-                  className="rounded-lg border border-forest-800 bg-forest-800/80 px-4 py-3"
-                >
-                  <p className="font-medium text-white">{m.title}</p>
-                  <p className="text-sm text-forest-400">
-                    {new Date(m.date).toLocaleDateString("en-US")}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <p className="mt-4 text-forest-300">
+              Your club has {openTasksCount} open task{openTasksCount !== 1 ? "s" : ""}. View event pages to manage them.
+            </p>
           )}
         </section>
       </div>

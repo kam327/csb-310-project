@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, QrCode, Users } from "lucide-react";
+import { Plus, QrCode, Users, Tag } from "lucide-react";
 import type { Event } from "@/types";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchEvents, fetchAttendanceForClub } from "@/lib/supabaseData";
+import {
+  fetchEvents,
+  fetchAttendanceForClub,
+  fetchEventCategories,
+  type EventCategory,
+} from "@/lib/supabaseData";
 
 export default function EventsPage() {
   const { user, profile, loading, profileError, refreshProfile } = useAuth();
@@ -18,8 +23,18 @@ export default function EventsPage() {
   const [time, setTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<EventCategory[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile?.club_id) {
+      setCategories([]);
+      return;
+    }
+    fetchEventCategories(profile.club_id).then(setCategories);
+  }, [profile?.club_id]);
 
   const refreshEvents = async () => {
     if (!profile?.club_id) return;
@@ -87,10 +102,11 @@ export default function EventsPage() {
           event_date: date,
           event_time: hasTimes ? time : null,
           event_end_time: hasTimes ? endTime : null,
+          category: category || null,
           location: null,
           qr_token: qrToken,
         })
-        .select("id, title, description, event_date, event_time, event_end_time, created_at")
+        .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
         .single();
 
       if (error || !data) {
@@ -102,6 +118,7 @@ export default function EventsPage() {
         setTime("");
         setEndTime("");
         setDescription("");
+        setCategory("");
         setShowForm(false);
       }
     } catch (err) {
@@ -252,6 +269,27 @@ export default function EventsPage() {
               />
             </div>
             <div>
+              <label htmlFor="event-category" className="block text-sm font-medium text-forest-300">
+                Category
+              </label>
+              <select
+                id="event-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+              >
+                <option value="">No category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-forest-500">
+                Manage categories in club settings.
+              </p>
+            </div>
+            <div>
               <label htmlFor="event-desc" className="block text-sm font-medium text-forest-300">
                 Description (optional)
               </label>
@@ -321,7 +359,15 @@ function EventCard({ event, past, checkInCount }: { event: Event; past?: boolean
     <li className="rounded-xl border border-forest-800 bg-forest-900/80 p-5 transition hover:border-forest-700">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-white">{event.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-white">{event.name}</h3>
+            {event.category && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gauge-500/20 px-2 py-0.5 text-xs font-medium text-gauge-300">
+                <Tag className="h-3 w-3" />
+                {event.category}
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-forest-400">
             {new Date(event.date).toLocaleDateString("en-US", {
               weekday: "short",

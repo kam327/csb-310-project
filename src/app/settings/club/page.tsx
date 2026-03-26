@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy } from "lucide-react";
+import { Copy, Plus, X } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchClub, type ClubSummary } from "@/lib/supabaseData";
+import {
+  fetchClub,
+  fetchEventCategories,
+  createEventCategory,
+  deleteEventCategory,
+  type ClubSummary,
+  type EventCategory,
+} from "@/lib/supabaseData";
 
 export default function ClubSettingsPage() {
   const router = useRouter();
@@ -16,6 +23,11 @@ export default function ClubSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [reminderDays, setReminderDays] = useState<string>("");
   const [tracksDues, setTracksDues] = useState(false);
+  const [categories, setCategories] = useState<EventCategory[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -26,6 +38,7 @@ export default function ClubSettingsPage() {
   useEffect(() => {
     if (!profile?.club_id) {
       setClub(null);
+      setCategories([]);
       return;
     }
     let cancelled = false;
@@ -43,10 +56,43 @@ export default function ClubSettingsPage() {
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to load club.");
       });
+    fetchEventCategories(profile.club_id).then((cats) => {
+      if (!cancelled) setCategories(cats);
+    });
     return () => {
       cancelled = true;
     };
   }, [profile?.club_id]);
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim() || !profile?.club_id) return;
+    setAddingCategory(true);
+    setCategoryError(null);
+    const { data, error: err } = await createEventCategory({
+      clubId: profile.club_id,
+      name: newCategoryName.trim(),
+    });
+    setAddingCategory(false);
+    if (err) {
+      setCategoryError(err.message ?? "Failed to add category.");
+    } else if (data) {
+      setCategories((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewCategoryName("");
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!profile?.club_id) return;
+    setDeletingCategoryId(catId);
+    setCategoryError(null);
+    const { error: err } = await deleteEventCategory({ clubId: profile.club_id, id: catId });
+    setDeletingCategoryId(null);
+    if (err) {
+      setCategoryError(err.message ?? "Failed to delete category.");
+    } else {
+      setCategories((prev) => prev.filter((c) => c.id !== catId));
+    }
+  };
 
   const handleCopyJoinCode = () => {
     if (!club?.join_code) return;
@@ -200,6 +246,67 @@ export default function ClubSettingsPage() {
           <p className="mt-1 text-xs text-forest-500">
             Leave blank to disable automatic reminders for this club.
           </p>
+        </div>
+
+        <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-5">
+          <h2 className="text-sm font-medium text-forest-300">Event categories</h2>
+          <p className="mt-1 text-xs text-forest-400">
+            Define categories for your events (e.g. ProfDev, Social, Panel, Networking).
+            These will appear in the category dropdown when creating events.
+          </p>
+
+          {categories.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {categories.map((cat) => (
+                <li
+                  key={cat.id}
+                  className="flex items-center justify-between rounded-lg border border-forest-800 bg-forest-800/50 px-3 py-2"
+                >
+                  <span className="text-sm text-white">{cat.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(cat.id)}
+                    disabled={deletingCategoryId === cat.id}
+                    className="text-forest-500 transition hover:text-red-400 disabled:opacity-50"
+                    title="Delete category"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {categories.length === 0 && (
+            <p className="mt-3 text-xs text-forest-500">No categories defined yet.</p>
+          )}
+
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddCategory();
+                }
+              }}
+              placeholder="New category name"
+              className="flex-1 rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddCategory}
+              disabled={addingCategory || !newCategoryName.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gauge-500 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-gauge-400 disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              {addingCategory ? "Adding…" : "Add"}
+            </button>
+          </div>
+
+          {categoryError && <p className="mt-2 text-xs text-red-400">{categoryError}</p>}
         </div>
 
         <button
