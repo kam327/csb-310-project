@@ -93,6 +93,8 @@ export const store = {
       );
       if (existing) {
         existing.lastSeen = now;
+        if (!existing.eventAttendance) existing.eventAttendance = [];
+        if (existing.isOfficerAccount === undefined) existing.isOfficerAccount = false;
         save(MEMBERS_KEY, all);
         return existing;
       }
@@ -103,6 +105,8 @@ export const store = {
         firstSeen: now,
         lastSeen: now,
         eventsAttended: 1,
+        eventAttendance: [],
+        isOfficerAccount: false,
       };
       all.push(member);
       save(MEMBERS_KEY, all);

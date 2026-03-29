@@ -24,6 +24,10 @@ export interface Member {
   firstSeen: string; // from first check-in or manual add
   lastSeen?: string;
   eventsAttended: number;
+  /** One row per event attended: latest check-in time if duplicates exist. */
+  eventAttendance: { eventId: string; checkedInAt: string }[];
+  /** True if this person has a Gauge club account with officer role (matched by email). */
+  isOfficerAccount?: boolean;
   notes?: string;
 }
 

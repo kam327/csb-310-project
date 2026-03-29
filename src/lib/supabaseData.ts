@@ -118,18 +118,27 @@ export async function fetchAttendanceForEvent(
 export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
   const byEmail = new Map<
     string,
-    { name: string; firstSeen: string; lastSeen: string; eventIds: Set<string> }
+    {
+      name: string;
+      firstSeen: string;
+      lastSeen: string;
+      eventIds: Set<string>;
+      lastCheckInByEvent: Map<string, string>;
+    }
   >();
   for (const c of checkIns) {
     const key = (c.memberEmail ?? c.memberName).toLowerCase().trim();
     const existing = byEmail.get(key);
     const at = c.checkedInAt;
     if (!existing) {
+      const lastCheckInByEvent = new Map<string, string>();
+      lastCheckInByEvent.set(c.eventId, at);
       byEmail.set(key, {
         name: c.memberName,
         firstSeen: at,
         lastSeen: at,
         eventIds: new Set([c.eventId]),
+        lastCheckInByEvent,
       });
     } else {
       existing.eventIds.add(c.eventId);
@@ -137,6 +146,10 @@ export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
         existing.firstSeen = at;
       if (new Date(at) > new Date(existing.lastSeen))
         existing.lastSeen = at;
+      const prevAt = existing.lastCheckInByEvent.get(c.eventId);
+      if (!prevAt || new Date(at) > new Date(prevAt)) {
+        existing.lastCheckInByEvent.set(c.eventId, at);
+      }
     }
   }
   return Array.from(byEmail.entries()).map(([email, v]) => ({
@@ -146,7 +159,59 @@ export function membersFromCheckIns(checkIns: CheckIn[]): Member[] {
     firstSeen: v.firstSeen,
     lastSeen: v.lastSeen,
     eventsAttended: v.eventIds.size,
+    eventAttendance: Array.from(v.lastCheckInByEvent.entries()).map(
+      ([eventId, checkedInAt]) => ({ eventId, checkedInAt })
+    ),
+    isOfficerAccount: false,
   }));
+}
+
+/**
+ * Flags members whose email matches a club officer account; adds officer rows with no check-ins yet.
+ */
+export function enrichMembersWithOfficers(
+  members: Member[],
+  clubUsers: ClubUserProfile[]
+): Member[] {
+  const officerEmails = new Set<string>();
+  for (const u of clubUsers) {
+    if (u.role === "officer" && u.email?.trim()) {
+      officerEmails.add(u.email.toLowerCase().trim());
+    }
+  }
+
+  const keyOf = (m: Member) => (m.email ?? m.id).toLowerCase().trim();
+
+  const flagged = members.map((m) => ({
+    ...m,
+    isOfficerAccount: m.email
+      ? officerEmails.has(m.email.toLowerCase().trim())
+      : false,
+  }));
+
+  const existingKeys = new Set(flagged.map(keyOf));
+
+  const added: Member[] = [];
+  for (const u of clubUsers) {
+    if (u.role !== "officer" || !u.email?.trim()) continue;
+    const k = u.email.toLowerCase().trim();
+    if (existingKeys.has(k)) continue;
+    existingKeys.add(k);
+    const created = u.created_at ?? new Date().toISOString();
+    const em = u.email.trim();
+    added.push({
+      id: `account:${u.id}`,
+      name: u.display_name?.trim() || em.split("@")[0] || "Officer",
+      email: em,
+      firstSeen: created,
+      lastSeen: undefined,
+      eventsAttended: 0,
+      eventAttendance: [],
+      isOfficerAccount: true,
+    });
+  }
+
+  return [...flagged, ...added];
 }
 
 /** Insert a check-in (public check-in page; anon or auth). */
@@ -180,6 +245,7 @@ export interface ClubUserProfile {
   role: string | null;
   display_name: string | null;
   email: string | null;
+  created_at?: string | null;
 }
 
 export async function fetchClub(
@@ -204,7 +270,7 @@ export async function fetchClubUsers(
   if (!clubId) return [];
   const { data, error } = await supabase
     .from("users")
-    .select("id, role, display_name, email")
+    .select("id, role, display_name, email, created_at")
     .eq("club_id", clubId);
   if (error) {
     console.error("[Gauge] fetchClubUsers", error);
