@@ -299,16 +299,51 @@ async function applyClubChoice(
     createdJoinCode = joinCode;
   }
 
+  // Ensure membership row exists so we can later restrict club switching via RLS
+  // (and so joining another club adds, rather than overwrites, membership history).
+  {
+    const { error: membershipError } = await supabase
+      .from("club_memberships")
+      .upsert(
+        {
+          user_id: userId,
+          club_id: clubId,
+          role: "officer",
+        },
+        { onConflict: "user_id,club_id" }
+      );
+    if (membershipError) {
+      throw new Error(
+        membershipError.message ?? "Failed to add club membership."
+      );
+    }
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("users")
     .upsert(
-      {
-        id: userId,
-        club_id: clubId,
-        role: "officer",
-        email,
-        display_name: displayName?.trim() || null,
-      },
+      (() => {
+        const payload: {
+          id: string;
+          club_id: string;
+          role: string;
+          email: string | null;
+          display_name?: string | null;
+        } = {
+          id: userId,
+          club_id: clubId,
+          role: "officer",
+          email,
+        };
+
+        // Important: if `displayName` wasn't provided (e.g. joining/switching
+        // clubs from inside an existing session), do NOT overwrite with null.
+        if (displayName !== undefined) {
+          payload.display_name = displayName.trim() || null;
+        }
+
+        return payload;
+      })(),
       { onConflict: "id" }
     )
     .select("id, club_id, role")

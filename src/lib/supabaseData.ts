@@ -334,6 +334,54 @@ export interface ClubUserProfile {
   created_at?: string | null;
 }
 
+export interface MyClubMembership {
+  id: string; // clubs.id
+  name: string; // clubs.name
+  university_name: string | null;
+  role: string | null; // membership role
+}
+
+/**
+ * Fetch clubs the signed-in user belongs to (driven by `club_memberships`).
+ * This powers the "switch clubs" dropdown.
+ */
+export async function fetchMyClubs(userId: string): Promise<MyClubMembership[]> {
+  const { data: memberships, error: memErr } = await supabase
+    .from("club_memberships")
+    .select("club_id, role")
+    .eq("user_id", userId);
+
+  if (memErr) {
+    console.error("[Gauge] fetchMyClubs (memberships)", memErr);
+    return [];
+  }
+
+  const membershipRows = memberships ?? [];
+  const clubIds = membershipRows.map((m) => m.club_id).filter(Boolean);
+  if (clubIds.length === 0) return [];
+
+  const roleByClubId = new Map(
+    membershipRows.map((m) => [m.club_id, m.role] as const)
+  );
+
+  const { data: clubs, error: clubsErr } = await supabase
+    .from("clubs")
+    .select("id, name, university_name")
+    .in("id", clubIds);
+
+  if (clubsErr) {
+    console.error("[Gauge] fetchMyClubs (clubs)", clubsErr);
+    return [];
+  }
+
+  return (clubs ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    university_name: c.university_name ?? null,
+    role: roleByClubId.get(c.id) ?? null,
+  }));
+}
+
 export async function fetchClub(
   clubId: string | null
 ): Promise<ClubSummary | null> {
