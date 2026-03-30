@@ -117,6 +117,16 @@ export async function fetchEventExpensesForClub(
 
   // Prefer a physically-created quoted column named `"Expenses"` (capital E),
   // because some deployments end up with only that column populated.
+  const { data: rowsCapitalAliased, error: errCapitalAliased } = await supabase
+    .from("events")
+    // Alias/cast to `expenses` so the returned JSON always has the expected key.
+    .select('id, ("Expenses")::double precision as expenses')
+    .eq("club_id", clubId);
+
+  if (!errCapitalAliased) {
+    return toExpenseMap(rowsCapitalAliased);
+  }
+
   const { data: rowsCapital, error: errCapital } = await supabase
     .from("events")
     .select('id, "Expenses"')
@@ -134,7 +144,7 @@ export async function fetchEventExpensesForClub(
   if (errLower) {
     console.error(
       "[Gauge] fetchEventExpensesForClub failed (no expenses column matched)",
-      { errCapital, errLower }
+      { errCapitalAliased, errCapital, errLower }
     );
     return {};
   }
