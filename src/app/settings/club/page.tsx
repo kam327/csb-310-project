@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Plus, X } from "lucide-react";
+import { Copy, Plus, X, GripVertical } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -14,6 +14,43 @@ import {
   type EventCategory,
 } from "@/lib/supabaseData";
 
+function TrendSwitch({
+  checked,
+  onClick,
+  label,
+  showStateText = true,
+}: {
+  checked: boolean;
+  onClick: () => void;
+  label: string;
+  showStateText?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={onClick}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+          checked ? "bg-gauge-500" : "bg-forest-700"
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+      {showStateText && (
+        <span className="text-sm text-forest-300">
+          {checked ? `${label} enabled` : `${label} disabled`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ClubSettingsPage() {
   const router = useRouter();
   const { user, profile, loading } = useAuth();
@@ -24,6 +61,24 @@ export default function ClubSettingsPage() {
   const [reminderDays, setReminderDays] = useState<string>("");
   const [tracksDues, setTracksDues] = useState(false);
   const [showDashboardTrends, setShowDashboardTrends] = useState(true);
+  const [dashboardTrendsOrder, setDashboardTrendsOrder] = useState<string[]>([
+    "members_by_engagement",
+    "avg_checkins_by_day_of_week",
+    "engagement_trend",
+    "attendance_by_event",
+    "cost_per_attendee",
+    "feedback_by_event",
+  ]);
+  const [draggingTrendKey, setDraggingTrendKey] = useState<string | null>(null);
+  const [showTrendMembersByEngagement, setShowTrendMembersByEngagement] =
+    useState(true);
+  const [showTrendAvgCheckinsByDayOfWeek, setShowTrendAvgCheckinsByDayOfWeek] =
+    useState(true);
+  const [showTrendEngagementTrend, setShowTrendEngagementTrend] = useState(true);
+  const [showTrendAttendanceByEvent, setShowTrendAttendanceByEvent] =
+    useState(true);
+  const [showTrendCostPerAttendee, setShowTrendCostPerAttendee] = useState(true);
+  const [showTrendFeedbackByEvent, setShowTrendFeedbackByEvent] = useState(true);
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
@@ -53,6 +108,32 @@ export default function ClubSettingsPage() {
           }
           setTracksDues(c?.tracks_dues ?? false);
           setShowDashboardTrends(c?.show_dashboard_trends ?? true);
+          setDashboardTrendsOrder(
+            c?.dashboard_trends_order?.length
+              ? c.dashboard_trends_order
+              : [
+                  "members_by_engagement",
+                  "avg_checkins_by_day_of_week",
+                  "engagement_trend",
+                  "attendance_by_event",
+                  "cost_per_attendee",
+                  "feedback_by_event",
+                ]
+          );
+          setShowTrendMembersByEngagement(
+            c?.show_dashboard_trend_members_by_engagement ?? true
+          );
+          setShowTrendAvgCheckinsByDayOfWeek(
+            c?.show_dashboard_trend_avg_checkins_by_day_of_week ?? true
+          );
+          setShowTrendEngagementTrend(
+            c?.show_dashboard_trend_engagement_trend ?? true
+          );
+          setShowTrendAttendanceByEvent(
+            c?.show_dashboard_trend_attendance_by_event ?? true
+          );
+          setShowTrendCostPerAttendee(c?.show_dashboard_trend_cost_per_attendee ?? true);
+          setShowTrendFeedbackByEvent(c?.show_dashboard_trend_feedback_by_event ?? true);
         }
       })
       .catch((err) => {
@@ -129,6 +210,13 @@ export default function ClubSettingsPage() {
           action_reminder_days: days,
           tracks_dues: tracksDues,
           show_dashboard_trends: showDashboardTrends,
+          dashboard_trends_order: dashboardTrendsOrder,
+          show_dashboard_trend_members_by_engagement: showTrendMembersByEngagement,
+          show_dashboard_trend_avg_checkins_by_day_of_week: showTrendAvgCheckinsByDayOfWeek,
+          show_dashboard_trend_engagement_trend: showTrendEngagementTrend,
+          show_dashboard_trend_attendance_by_event: showTrendAttendanceByEvent,
+          show_dashboard_trend_cost_per_attendee: showTrendCostPerAttendee,
+          show_dashboard_trend_feedback_by_event: showTrendFeedbackByEvent,
         })
         .eq("id", club.id);
       if (updateError) {
@@ -139,6 +227,13 @@ export default function ClubSettingsPage() {
           action_reminder_days: days,
           tracks_dues: tracksDues,
           show_dashboard_trends: showDashboardTrends,
+          dashboard_trends_order: dashboardTrendsOrder,
+          show_dashboard_trend_members_by_engagement: showTrendMembersByEngagement,
+          show_dashboard_trend_avg_checkins_by_day_of_week: showTrendAvgCheckinsByDayOfWeek,
+          show_dashboard_trend_engagement_trend: showTrendEngagementTrend,
+          show_dashboard_trend_attendance_by_event: showTrendAttendanceByEvent,
+          show_dashboard_trend_cost_per_attendee: showTrendCostPerAttendee,
+          show_dashboard_trend_feedback_by_event: showTrendFeedbackByEvent,
         });
       }
     } catch (e) {
@@ -246,27 +341,117 @@ export default function ClubSettingsPage() {
             When enabled, your dashboard&apos;s Trends section will show charts
             like check-in, attendance, feedback, and engagement.
           </p>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showDashboardTrends}
+
+          <div className="mt-3">
+            <TrendSwitch
+              checked={showDashboardTrends}
               onClick={() => setShowDashboardTrends((v) => !v)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                showDashboardTrends ? "bg-gauge-500" : "bg-forest-700"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  showDashboardTrends ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-            <span className="text-sm text-forest-300">
-              {showDashboardTrends
-                ? "Dashboard trends enabled"
-                : "Dashboard trends disabled"}
-            </span>
+              label="Dashboard trends"
+            />
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-forest-400">
+              Drag to reorder trends as they appear on the main dashboard. Toggle
+              each item on/off to control which charts are displayed.
+            </p>
+
+            {dashboardTrendsOrder
+              .filter(Boolean)
+              .map((key) => {
+                const meta =
+                  key === "members_by_engagement"
+                    ? {
+                        title: "Members by engagement",
+                        checked: showTrendMembersByEngagement,
+                        onToggle: () => setShowTrendMembersByEngagement((v) => !v),
+                      }
+                    : key === "avg_checkins_by_day_of_week"
+                      ? {
+                          title: "Avg check-ins by day of week",
+                          checked: showTrendAvgCheckinsByDayOfWeek,
+                          onToggle: () =>
+                            setShowTrendAvgCheckinsByDayOfWeek((v) => !v),
+                        }
+                      : key === "engagement_trend"
+                        ? {
+                            title: "Engagement trend (12 weeks)",
+                            checked: showTrendEngagementTrend,
+                            onToggle: () => setShowTrendEngagementTrend((v) => !v),
+                          }
+                        : key === "attendance_by_event"
+                          ? {
+                              title: "Attendance by event",
+                              checked: showTrendAttendanceByEvent,
+                              onToggle: () => setShowTrendAttendanceByEvent((v) => !v),
+                            }
+                          : key === "cost_per_attendee"
+                            ? {
+                                title: "Cost per attendee",
+                                checked: showTrendCostPerAttendee,
+                                onToggle: () => setShowTrendCostPerAttendee((v) => !v),
+                              }
+                            : key === "feedback_by_event"
+                              ? {
+                                  title: "Average feedback score",
+                                  checked: showTrendFeedbackByEvent,
+                                  onToggle: () => setShowTrendFeedbackByEvent((v) => !v),
+                                }
+                              : null;
+
+                if (!meta) return null;
+
+                return (
+                  <div
+                    key={key}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggingTrendKey(key);
+                      e.dataTransfer.setData("text/plain", key);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const fromKey =
+                        e.dataTransfer.getData("text/plain") ?? draggingTrendKey;
+                      if (!fromKey || fromKey === key) return;
+
+                      setDashboardTrendsOrder((prev) => {
+                        const next = [...prev];
+                        const fromIndex = next.indexOf(fromKey);
+                        const toIndex = next.indexOf(key);
+                        if (fromIndex < 0 || toIndex < 0) return prev;
+                        const [moved] = next.splice(fromIndex, 1);
+                        next.splice(toIndex, 0, moved);
+                        return next;
+                      });
+                      setDraggingTrendKey(null);
+                    }}
+                    className={`flex items-center justify-between gap-4 rounded-xl border border-forest-800 bg-forest-900/60 p-3 ${
+                      draggingTrendKey === key ? "opacity-80" : ""
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <GripVertical className="h-5 w-5 cursor-grab text-forest-500" />
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-white">
+                          {meta.title}
+                        </div>
+                      </div>
+                    </div>
+                    <TrendSwitch
+                      checked={meta.checked}
+                      onClick={meta.onToggle}
+                      label={meta.title}
+                      showStateText={false}
+                    />
+                  </div>
+                );
+              })}
           </div>
         </div>
 

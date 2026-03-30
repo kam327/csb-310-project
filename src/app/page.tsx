@@ -32,6 +32,25 @@ export default function HomePage() {
   const [membersCount, setMembersCount] = useState(0);
   const [clubName, setClubName] = useState<string | null>(null);
   const [showDashboardTrends, setShowDashboardTrends] = useState(true);
+  const [dashboardTrendsOrder, setDashboardTrendsOrder] = useState<string[]>(
+    [
+      "members_by_engagement",
+      "avg_checkins_by_day_of_week",
+      "engagement_trend",
+      "attendance_by_event",
+      "cost_per_attendee",
+      "feedback_by_event",
+    ]
+  );
+  const [showTrendMembersByEngagement, setShowTrendMembersByEngagement] =
+    useState(true);
+  const [showTrendAvgCheckinsByDayOfWeek, setShowTrendAvgCheckinsByDayOfWeek] =
+    useState(true);
+  const [showTrendEngagementTrend, setShowTrendEngagementTrend] = useState(true);
+  const [showTrendAttendanceByEvent, setShowTrendAttendanceByEvent] =
+    useState(true);
+  const [showTrendCostPerAttendee, setShowTrendCostPerAttendee] = useState(true);
+  const [showTrendFeedbackByEvent, setShowTrendFeedbackByEvent] = useState(true);
   const [clubUsers, setClubUsers] = useState<
     { id: string; role: string | null; display_name: string | null; email: string | null }[]
   >([]);
@@ -59,6 +78,34 @@ export default function HomePage() {
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
         setShowDashboardTrends(club?.show_dashboard_trends ?? true);
+        setDashboardTrendsOrder(
+          club?.dashboard_trends_order?.length
+            ? club.dashboard_trends_order
+            : [
+                "members_by_engagement",
+                "avg_checkins_by_day_of_week",
+                "engagement_trend",
+                "attendance_by_event",
+                "cost_per_attendee",
+                "feedback_by_event",
+              ]
+        );
+        setShowTrendMembersByEngagement(
+          club?.show_dashboard_trend_members_by_engagement ?? true
+        );
+        setShowTrendAvgCheckinsByDayOfWeek(
+          club?.show_dashboard_trend_avg_checkins_by_day_of_week ?? true
+        );
+        setShowTrendEngagementTrend(
+          club?.show_dashboard_trend_engagement_trend ?? true
+        );
+        setShowTrendAttendanceByEvent(
+          club?.show_dashboard_trend_attendance_by_event ?? true
+        );
+        setShowTrendCostPerAttendee(
+          club?.show_dashboard_trend_cost_per_attendee ?? true
+        );
+        setShowTrendFeedbackByEvent(club?.show_dashboard_trend_feedback_by_event ?? true);
         setClubUsers(users ?? []);
         setOpenTasksCount(tasks.filter((t) => !t.completed).length);
         setFeedbackByEvent(feedback);
@@ -72,6 +119,20 @@ export default function HomePage() {
       setOpenTasksCount(0);
       setFeedbackByEvent([]);
       setShowDashboardTrends(false);
+      setDashboardTrendsOrder([
+        "members_by_engagement",
+        "avg_checkins_by_day_of_week",
+        "engagement_trend",
+        "attendance_by_event",
+        "cost_per_attendee",
+        "feedback_by_event",
+      ]);
+      setShowTrendMembersByEngagement(false);
+      setShowTrendAvgCheckinsByDayOfWeek(false);
+      setShowTrendEngagementTrend(false);
+      setShowTrendAttendanceByEvent(false);
+      setShowTrendCostPerAttendee(false);
+      setShowTrendFeedbackByEvent(false);
     }
   }, [profile?.club_id]);
 
@@ -86,10 +147,146 @@ export default function HomePage() {
     .slice(0, 3);
   const totalCheckIns = checkIns.length;
 
+  const showAnyTrends =
+    showDashboardTrends &&
+    (showTrendMembersByEngagement ||
+      showTrendAvgCheckinsByDayOfWeek ||
+      showTrendEngagementTrend ||
+      showTrendAttendanceByEvent ||
+      showTrendCostPerAttendee ||
+      showTrendFeedbackByEvent);
+
   const membersForEngagement: Member[] = useMemo(
     () => enrichMembersWithOfficers(membersFromCheckIns(checkIns), clubUsers),
     [checkIns, clubUsers]
   );
+
+  const defaultTrendsOrder = [
+    "members_by_engagement",
+    "avg_checkins_by_day_of_week",
+    "engagement_trend",
+    "attendance_by_event",
+    "cost_per_attendee",
+    "feedback_by_event",
+  ];
+  const orderedTrendKeys = (
+    dashboardTrendsOrder?.length ? dashboardTrendsOrder : defaultTrendsOrder
+  ).filter(Boolean);
+
+  const trendCardsByKey: Record<
+    string,
+    { enabled: boolean; node: JSX.Element }
+  > = {
+    members_by_engagement: {
+      enabled: showTrendMembersByEngagement,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Members by engagement
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            Roster includes everyone who has checked in, plus officers with
+            accounts. Share of events attended is measured against events in
+            the selected window (up to today).
+          </p>
+          <div className="mt-4">
+            <MemberEngagementPieChart
+              members={membersForEngagement}
+              events={events}
+              checkIns={checkIns}
+            />
+          </div>
+        </div>
+      ),
+    },
+    avg_checkins_by_day_of_week: {
+      enabled: showTrendAvgCheckinsByDayOfWeek,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Avg check-ins by day of week
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            Click a day to see the best time of day
+          </p>
+          <div className="mt-4">
+            <DayOfWeekHeatmap events={events} checkIns={checkIns} />
+          </div>
+        </div>
+      ),
+    },
+    engagement_trend: {
+      enabled: showTrendEngagementTrend,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Engagement trend (12 weeks)
+          </h3>
+          <div className="mt-4">
+            <EngagementTrendChart checkIns={checkIns} />
+          </div>
+          <p className="mt-2 text-xs text-forest-400">
+            Weekly check-in trend over time
+          </p>
+        </div>
+      ),
+    },
+    attendance_by_event: {
+      enabled: showTrendAttendanceByEvent,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Attendance by event (last 10 events)
+          </h3>
+          <div className="mt-4 min-h-[200px]">
+            <EventAttendanceChart events={events} checkIns={checkIns} />
+          </div>
+          {events.filter((e) => new Date(e.date) < now).length === 0 && (
+            <p className="mt-4 text-forest-400">
+              No past events yet. Create events and check-ins to see
+              attendance by event.
+            </p>
+          )}
+        </div>
+      ),
+    },
+    cost_per_attendee: {
+      enabled: showTrendCostPerAttendee,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Cost per attendee (last 10 past events)
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            Event expense ÷ number of check-ins (same events as attendance chart)
+          </p>
+          <div className="mt-4 min-h-[200px]">
+            <CostPerAttendeeChart events={events} checkIns={checkIns} />
+          </div>
+        </div>
+      ),
+    },
+    feedback_by_event: {
+      enabled: showTrendFeedbackByEvent,
+      node: (
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Average feedback score by event (last 10 with responses)
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            1–5 scale from survey ratings; one bar per event (latest survey per event)
+          </p>
+          <div className="mt-4 min-h-[200px]">
+            <FeedbackScoresByEventChart rows={feedbackByEvent} />
+          </div>
+        </div>
+      ),
+    },
+  };
+
+  const trendNodes = orderedTrendKeys
+    .filter((k) => trendCardsByKey[k]?.enabled)
+    .map((k) => <div key={k}>{trendCardsByKey[k].node}</div>);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -166,83 +363,10 @@ export default function HomePage() {
         />
       </div>
 
-      {showDashboardTrends && (
+      {showAnyTrends && (
         <section className="mt-10">
           <h2 className="mb-4 text-lg font-semibold text-white">Trends</h2>
-        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-          <h3 className="text-sm font-medium text-forest-300">
-            Members by engagement
-          </h3>
-          <p className="mt-1 text-xs text-forest-400">
-            Roster includes everyone who has checked in, plus officers with
-            accounts. Share of events attended is measured against events in
-            the selected window (up to today).
-          </p>
-          <div className="mt-4">
-            <MemberEngagementPieChart
-              members={membersForEngagement}
-              events={events}
-              checkIns={checkIns}
-            />
-          </div>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-            <h3 className="text-sm font-medium text-forest-300">
-              Avg check-ins by day of week
-            </h3>
-            <p className="mt-1 text-xs text-forest-400">
-              Click a day to see the best time of day
-            </p>
-            <div className="mt-4">
-              <DayOfWeekHeatmap events={events} checkIns={checkIns} />
-            </div>
-          </div>
-          <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-            <h3 className="text-sm font-medium text-forest-300">
-              Engagement trend (12 weeks)
-            </h3>
-            <div className="mt-4">
-              <EngagementTrendChart checkIns={checkIns} />
-            </div>
-            <p className="mt-2 text-xs text-forest-400">
-              Weekly check-in trend over time
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-          <h3 className="text-sm font-medium text-forest-300">
-            Attendance by event (last 10 events)
-          </h3>
-          <div className="mt-4 min-h-[200px]">
-            <EventAttendanceChart events={events} checkIns={checkIns} />
-          </div>
-          {events.filter((e) => new Date(e.date) < now).length === 0 && (
-            <p className="mt-4 text-forest-400">No past events yet. Create events and check-ins to see attendance by event.</p>
-          )}
-        </div>
-        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-          <h3 className="text-sm font-medium text-forest-300">
-            Cost per attendee (last 10 past events)
-          </h3>
-          <p className="mt-1 text-xs text-forest-400">
-            Event expense ÷ number of check-ins (same events as attendance chart)
-          </p>
-          <div className="mt-4 min-h-[200px]">
-            <CostPerAttendeeChart events={events} checkIns={checkIns} />
-          </div>
-        </div>
-        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-          <h3 className="text-sm font-medium text-forest-300">
-            Average feedback score by event (last 10 with responses)
-          </h3>
-          <p className="mt-1 text-xs text-forest-400">
-            1–5 scale from survey ratings; one bar per event (latest survey per event)
-          </p>
-          <div className="mt-4 min-h-[200px]">
-            <FeedbackScoresByEventChart rows={feedbackByEvent} />
-          </div>
-        </div>
+          {trendNodes}
         </section>
       )}
 

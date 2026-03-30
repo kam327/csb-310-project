@@ -109,27 +109,28 @@ export async function fetchEventExpensesForClub(
     return out;
   };
 
-  const { data: rows1, error: err1 } = await supabase
+  // Prefer a physically-created quoted column named `"Expenses"` (capital E),
+  // because some deployments end up with only that column populated.
+  const { data: rowsCapital, error: errCapital } = await supabase
+    .from("events")
+    .select('id, "Expenses" as expenses')
+    .eq("club_id", clubId);
+
+  if (!errCapital) {
+    return toExpenseMap(rowsCapital);
+  }
+
+  const { data: rowsLower, error: errLower } = await supabase
     .from("events")
     .select("id, expenses")
     .eq("club_id", clubId);
 
-  if (!err1) {
-    return toExpenseMap(rows1);
-  }
-
-  // Some schemas may have `Expenses` (capital E) as the physical column name.
-  const { data: rows2, error: err2 } = await supabase
-    .from("events")
-    .select("id, \"Expenses\" as expenses")
-    .eq("club_id", clubId);
-
-  if (err2) {
-    console.error("[Gauge] fetchEventExpensesForClub", err1 ?? err2);
+  if (errLower) {
+    console.error("[Gauge] fetchEventExpensesForClub", errCapital ?? errLower);
     return {};
   }
 
-  return toExpenseMap(rows2);
+  return toExpenseMap(rowsLower);
 }
 
 /** Fetch all attendance rows for a club (via events). */
@@ -297,6 +298,13 @@ export interface ClubSummary {
   join_code: string | null;
   tracks_dues: boolean;
   show_dashboard_trends: boolean;
+  show_dashboard_trend_members_by_engagement: boolean;
+  show_dashboard_trend_avg_checkins_by_day_of_week: boolean;
+  show_dashboard_trend_engagement_trend: boolean;
+  show_dashboard_trend_attendance_by_event: boolean;
+  show_dashboard_trend_cost_per_attendee: boolean;
+  show_dashboard_trend_feedback_by_event: boolean;
+  dashboard_trends_order: string[] | null;
 }
 
 export interface ClubUserProfile {
@@ -313,16 +321,46 @@ export async function fetchClub(
   if (!clubId) return null;
   const { data, error } = await supabase
     .from("clubs")
-    .select(
-      "id, name, university_name, action_reminder_days, join_code, tracks_dues, show_dashboard_trends"
-    )
+    // Select all so the query won't fail if new per-trend columns haven't been migrated yet.
+    .select("*")
     .eq("id", clubId)
     .single();
   if (error || !data) {
     console.error("[Gauge] fetchClub", error);
     return null;
   }
-  return data as ClubSummary;
+  // Use defaults so older DB schemas still render something reasonable.
+  const row = data as any;
+  return {
+    id: row.id,
+    name: row.name,
+    university_name: row.university_name ?? null,
+    action_reminder_days: row.action_reminder_days ?? null,
+    join_code: row.join_code ?? null,
+    tracks_dues: Boolean(row.tracks_dues),
+    show_dashboard_trends: Boolean(row.show_dashboard_trends ?? true),
+    show_dashboard_trend_members_by_engagement: Boolean(
+      row.show_dashboard_trend_members_by_engagement ?? true
+    ),
+    show_dashboard_trend_avg_checkins_by_day_of_week: Boolean(
+      row.show_dashboard_trend_avg_checkins_by_day_of_week ?? true
+    ),
+    show_dashboard_trend_engagement_trend: Boolean(
+      row.show_dashboard_trend_engagement_trend ?? true
+    ),
+    show_dashboard_trend_attendance_by_event: Boolean(
+      row.show_dashboard_trend_attendance_by_event ?? true
+    ),
+    show_dashboard_trend_cost_per_attendee: Boolean(
+      row.show_dashboard_trend_cost_per_attendee ?? true
+    ),
+    show_dashboard_trend_feedback_by_event: Boolean(
+      row.show_dashboard_trend_feedback_by_event ?? true
+    ),
+    dashboard_trends_order: Array.isArray(row.dashboard_trends_order)
+      ? (row.dashboard_trends_order as string[])
+      : null,
+  };
 }
 
 export async function fetchClubUsers(

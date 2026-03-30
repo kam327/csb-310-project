@@ -18,6 +18,30 @@ const COLORS = {
   inactive: "#4a6048",
 } as const;
 
+function parseYmdToDate(ymd: string): Date {
+  // Avoid timezone shifts by constructing from numbers (local time).
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  return new Date(y, m - 1, d);
+}
+
+function formatEngagementWindowRange(windowStart: string, windowEnd: string) {
+  const startDate = parseYmdToDate(windowStart);
+  const endDate = parseYmdToDate(windowEnd);
+
+  const monthDay = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+  });
+  const year = new Intl.DateTimeFormat("en-US", { year: "numeric" });
+
+  const start = monthDay.format(startDate);
+  const end = monthDay.format(endDate);
+
+  return startDate.getFullYear() === endDate.getFullYear()
+    ? `${start} \u2013 ${end}, ${year.format(endDate)}`
+    : `${start}, ${year.format(startDate)} \u2013 ${end}, ${year.format(endDate)}`;
+}
+
 export function MemberEngagementPieChart({
   members = [],
   events = [],
@@ -112,12 +136,12 @@ export function MemberEngagementPieChart({
           />
         </label>
         <p className="max-w-md text-xs text-forest-400">
-          Share of roster members by attendance:{" "}
-          <span className="text-forest-300">core</span> ≥70% of events in the
-          window, <span className="text-forest-300">casual</span> 30–70%,{" "}
-          <span className="text-forest-300">inactive</span> &lt;30%. Window:{" "}
-          {segments.windowStart} → {segments.windowEnd} ({segments.totalEventsInWindow}{" "}
-          event{segments.totalEventsInWindow === 1 ? "" : "s"}).
+          Members are grouped by attendance:{" "}
+          <span className="text-forest-300">Core (70%+)</span>,{" "}
+          <span className="text-forest-300">Casual (30–70%)</span>, and{" "}
+          <span className="text-forest-300">Inactive (&lt;30%)</span> over the last{" "}
+          {segments.totalEventsInWindow} event{segments.totalEventsInWindow === 1 ? "" : "s"} (
+          {formatEngagementWindowRange(segments.windowStart, segments.windowEnd)}).
         </p>
       </div>
 
