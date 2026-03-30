@@ -269,6 +269,7 @@ async function applyClubChoice(
 ): Promise<{ profile: Profile; joinCode?: string }> {
   let clubId: string;
   let createdJoinCode: string | undefined;
+  let roleToSet: string = "member";
 
   if (choice.type === "join") {
     const joinCode = normalizeJoinCode(choice.joinCode);
@@ -282,6 +283,7 @@ async function applyClubChoice(
     }
     clubId = club.id as string;
   } else {
+    roleToSet = "officer";
     const joinCode = generateJoinCode();
     const { data: club, error } = await supabase
       .from("clubs")
@@ -299,6 +301,27 @@ async function applyClubChoice(
     createdJoinCode = joinCode;
   }
 
+  // If joining via club code, only preserve `role=officer` when the user is
+  // already an officer for *that specific club*.
+  if (choice.type === "join") {
+    const { data: existing, error: existingErr } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .eq("club_id", clubId)
+      .maybeSingle();
+
+    if (existingErr) {
+      throw new Error(
+        existingErr.message ?? "Failed to verify existing club role."
+      );
+    }
+
+    if (existing?.role === "officer") {
+      roleToSet = "officer";
+    }
+  }
+
   // Ensure membership row exists so we can later restrict club switching via RLS
   // (and so joining another club adds, rather than overwrites, membership history).
   {
@@ -308,7 +331,7 @@ async function applyClubChoice(
         {
           user_id: userId,
           club_id: clubId,
-          role: "officer",
+          role: roleToSet,
         },
         { onConflict: "user_id,club_id" }
       );
@@ -332,7 +355,7 @@ async function applyClubChoice(
         } = {
           id: userId,
           club_id: clubId,
-          role: "officer",
+          role: roleToSet,
           email,
         };
 
