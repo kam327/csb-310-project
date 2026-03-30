@@ -63,7 +63,7 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, title, description, event_date, event_time, event_end_time, category, expenses, created_at"
+      "id, title, description, event_date, event_time, event_end_time, category, created_at"
     )
     .eq("club_id", clubId)
     .order("event_date", { ascending: false });
@@ -79,12 +79,57 @@ export async function fetchEventById(eventId: string): Promise<Event | null> {
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, title, description, event_date, event_time, event_end_time, category, expenses, created_at"
+      "id, title, description, event_date, event_time, event_end_time, category, created_at"
     )
     .eq("id", eventId)
     .single();
   if (error || !data) return null;
   return toEvent(data);
+}
+
+/**
+ * Best-effort fetch of per-event expenses for a club.
+ *
+ * If the column doesn't exist (or is named with different casing like `Expenses`),
+ * this function returns an empty map so the rest of the dashboard still loads.
+ */
+export async function fetchEventExpensesForClub(
+  clubId: string | null
+): Promise<Record<string, number>> {
+  if (!clubId) return {};
+
+  const toExpenseMap = (rows: unknown): Record<string, number> => {
+    const out: Record<string, number> = {};
+    const list = (rows ?? []) as Array<{ id?: string; expenses?: unknown }>;
+    for (const r of list) {
+      if (!r?.id) continue;
+      const n = r.expenses === null || r.expenses === undefined ? null : Number(r.expenses);
+      if (n !== null && Number.isFinite(n)) out[r.id] = n;
+    }
+    return out;
+  };
+
+  const { data: rows1, error: err1 } = await supabase
+    .from("events")
+    .select("id, expenses")
+    .eq("club_id", clubId);
+
+  if (!err1) {
+    return toExpenseMap(rows1);
+  }
+
+  // Some schemas may have `Expenses` (capital E) as the physical column name.
+  const { data: rows2, error: err2 } = await supabase
+    .from("events")
+    .select("id, \"Expenses\" as expenses")
+    .eq("club_id", clubId);
+
+  if (err2) {
+    console.error("[Gauge] fetchEventExpensesForClub", err1 ?? err2);
+    return {};
+  }
+
+  return toExpenseMap(rows2);
 }
 
 /** Fetch all attendance rows for a club (via events). */

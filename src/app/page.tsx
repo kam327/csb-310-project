@@ -16,6 +16,7 @@ import {
   fetchClubUsers,
   fetchCriticalActionItems,
   fetchFeedbackAveragesByEvent,
+  fetchEventExpensesForClub,
   enrichMembersWithOfficers,
   type FeedbackAverageByEvent,
 } from "@/lib/supabaseData";
@@ -45,8 +46,15 @@ export default function HomePage() {
         fetchClubUsers(profile.club_id),
         fetchCriticalActionItems(profile.club_id),
         fetchFeedbackAveragesByEvent(profile.club_id),
-      ]).then(([evs, cis, club, users, tasks, feedback]) => {
-        setEvents(evs);
+        fetchEventExpensesForClub(profile.club_id),
+      ]).then(([evs, cis, club, users, tasks, feedback, expensesByEventId]) => {
+        // Merge expenses (if available) without blocking the rest of the dashboard.
+        setEvents(
+          evs.map((e) => ({
+            ...e,
+            expenses: expensesByEventId?.[e.id] ?? e.expenses,
+          }))
+        );
         setCheckIns(cis);
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
