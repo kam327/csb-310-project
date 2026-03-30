@@ -76,15 +76,30 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
 
 /** Fetch a single event by id (works for anon on check-in page). */
 export async function fetchEventById(eventId: string): Promise<Event | null> {
-  const { data, error } = await supabase
+  // Prefer the physically created quoted column `Events."Expenses"`.
+  // If it doesn't exist, fall back to `events.expenses`.
+  const { data: dataCapital, error: errCapital } = await supabase
     .from("events")
     .select(
-      "id, title, description, event_date, event_time, event_end_time, category, created_at"
+      'id, title, description, event_date, event_time, event_end_time, category, ("Expenses")::double precision as expenses, created_at'
     )
     .eq("id", eventId)
     .single();
-  if (error || !data) return null;
-  return toEvent(data);
+
+  if (!errCapital && dataCapital) {
+    return toEvent(dataCapital);
+  }
+
+  const { data: dataLower, error: errLower } = await supabase
+    .from("events")
+    .select(
+      "id, title, description, event_date, event_time, event_end_time, category, expenses, created_at"
+    )
+    .eq("id", eventId)
+    .single();
+
+  if (errLower || !dataLower) return null;
+  return toEvent(dataLower);
 }
 
 /**

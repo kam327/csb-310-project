@@ -24,6 +24,7 @@ export default function EventsPage() {
   const [endTime, setEndTime] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [expenses, setExpenses] = useState<string>("");
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +68,15 @@ export default function EventsPage() {
     setSaving(true);
     setError(null);
 
+    // Prevent creating events in the past (only allow today or future).
+    const now = new Date();
+    const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (date < todayYmd) {
+      setSaving(false);
+      setError("You can only create events for today or future dates.");
+      return;
+    }
+
     const hasStart = Boolean(time);
     const hasEnd = Boolean(endTime);
     if (hasStart !== hasEnd) {
@@ -93,24 +103,60 @@ export default function EventsPage() {
     const qrToken = crypto.randomUUID();
 
     try {
+      const parsedExpense =
+        expenses.trim() === "" ? null : Number(expenses.trim());
+      if (
+        expenses.trim() !== "" &&
+        (!Number.isFinite(parsedExpense) || parsedExpense < 0)
+      ) {
+        setSaving(false);
+        setError("Expenses must be a non-negative number (or leave it blank).");
+        return;
+      }
+
+      const commonPayload = {
+        club_id: profile.club_id,
+        title: name.trim(),
+        description: description.trim() || null,
+        event_date: date,
+        event_time: hasTimes ? time : null,
+        event_end_time: hasTimes ? endTime : null,
+        category: category || null,
+        location: null,
+        qr_token: qrToken,
+      };
+
+      const lowerPayload =
+        parsedExpense === null
+          ? commonPayload
+          : { ...commonPayload, expenses: parsedExpense };
+
       const { data, error } = await supabase
         .from("events")
-        .insert({
-          club_id: profile.club_id,
-          title: name.trim(),
-          description: description.trim() || null,
-          event_date: date,
-          event_time: hasTimes ? time : null,
-          event_end_time: hasTimes ? endTime : null,
-          category: category || null,
-          location: null,
-          qr_token: qrToken,
-        })
-        .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
+        .insert(lowerPayload)
+        .select(
+          "id, title, description, event_date, event_time, event_end_time, category, created_at"
+        )
         .single();
 
-      if (error || !data) {
-        setError(error?.message ?? "Failed to create event in Supabase.");
+      // If the physical column is named `Expenses` (capital E), retry.
+      let finalData = data;
+      let finalErr = error;
+      if (finalErr && parsedExpense !== null) {
+        const capitalPayload = { ...commonPayload, Expenses: parsedExpense };
+        const retry = await supabase
+          .from("events")
+          .insert(capitalPayload)
+          .select(
+            "id, title, description, event_date, event_time, event_end_time, category, created_at"
+          )
+          .single();
+        finalData = retry.data;
+        finalErr = retry.error;
+      }
+
+      if (finalErr || !finalData) {
+        setError(finalErr?.message ?? "Failed to create event in Supabase.");
       } else {
         await refreshEvents();
         setName("");
@@ -119,6 +165,7 @@ export default function EventsPage() {
         setEndTime("");
         setDescription("");
         setCategory("");
+        setExpenses("");
         setShowForm(false);
       }
     } catch (err) {
@@ -129,6 +176,7 @@ export default function EventsPage() {
   };
 
   const now = new Date();
+  const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const eventDateTime = (e: Event) => {
     const timeStr = e.time ?? "00:00";
     return new Date(`${e.date}T${timeStr}`);
@@ -238,6 +286,7 @@ export default function EventsPage() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                min={todayYmd}
                 className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
                 required
               />
@@ -301,6 +350,25 @@ export default function EventsPage() {
                 rows={2}
                 className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
               />
+            </div>
+            <div>
+              <label htmlFor="event-expenses" className="block text-sm font-medium text-forest-300">
+                Expenses (optional)
+              </label>
+              <input
+                id="event-expenses"
+                type="number"
+                inputMode="decimal"
+                step="1"
+                min={0}
+                value={expenses}
+                onChange={(e) => setExpenses(e.target.value)}
+                placeholder="e.g. 500"
+                className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-4 py-2.5 text-white placeholder-forest-400 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+              />
+              <p className="mt-1 text-xs text-forest-500">
+                Used for the “Cost per attendee” trend.
+              </p>
             </div>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-3">

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Event, CheckIn, FeedbackSurvey } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabaseClient";
 import {
   fetchEventById,
   fetchAttendanceForEvent,
@@ -30,8 +31,10 @@ import {
   deleteCriticalActionItem,
   toggleCriticalActionItemCompleted,
   fetchClubUsers,
+  fetchEventCategories,
   type CriticalActionItem,
   type ClubUserProfile,
+  type EventCategory,
 } from "@/lib/supabaseData";
 
 const BASE_URL_KEY = "gauge-checkin-base-url";
@@ -63,6 +66,20 @@ export default function EventDetailPage() {
   const id = params.id as string;
   const { profile } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
+  const [eventCategories, setEventCategories] = useState<EventCategory[]>([]);
+
+  // Officer-only edit UI for the event's core fields (including Expenses).
+  const [editingEvent, setEditingEvent] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editExpenses, setEditExpenses] = useState<string>("");
+  const [eventEditSaving, setEventEditSaving] = useState(false);
+  const [eventEditError, setEventEditError] = useState<string | null>(null);
+
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [copied, setCopied] = useState(false);
   const [baseUrlOverride, setBaseUrlOverride] = useState("");
@@ -107,6 +124,23 @@ export default function EventDetailPage() {
     fetchCriticalActionItems(profile.club_id, id).then(setTasks);
     fetchClubUsers(profile.club_id).then(setUsers);
   }, [profile?.club_id, id]);
+
+  useEffect(() => {
+    if (!profile?.club_id) return;
+    fetchEventCategories(profile.club_id).then(setEventCategories);
+  }, [profile?.club_id]);
+
+  useEffect(() => {
+    if (!event) return;
+    if (editingEvent) return; // don't overwrite while the user is editing
+    setEditTitle(event.name ?? "");
+    setEditDate(event.date ?? "");
+    setEditTime(event.time ?? "");
+    setEditEndTime(event.endTime ?? "");
+    setEditCategory(event.category ?? "");
+    setEditDescription(event.description ?? "");
+    setEditExpenses(event.expenses === null || event.expenses === undefined ? "" : String(event.expenses));
+  }, [event, editingEvent]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -170,6 +204,83 @@ export default function EventDetailPage() {
       } catch {
         setBaseUrlInput("Invalid URL");
       }
+    }
+  };
+
+  const handleSaveEventEdits = async () => {
+    if (!event || !profile?.club_id) return;
+
+    const title = editTitle.trim();
+    if (!title) {
+      setEventEditError("Event name is required.");
+      return;
+    }
+    if (!editDate) {
+      setEventEditError("Event date is required.");
+      return;
+    }
+
+    const hasTimes = editTime.trim() !== "" || editEndTime.trim() !== "";
+    if (hasTimes && (!editTime.trim() || !editEndTime.trim())) {
+      setEventEditError("Provide both start time and end time (or leave both blank).");
+      return;
+    }
+
+    const parsedExpense =
+      editExpenses.trim() === "" ? null : Number(editExpenses.trim());
+    if (
+      editExpenses.trim() !== "" &&
+      (!Number.isFinite(parsedExpense) || parsedExpense < 0)
+    ) {
+      setEventEditError("Expenses must be a non-negative number (or leave it blank).");
+      return;
+    }
+
+    setEventEditSaving(true);
+    setEventEditError(null);
+
+    const payloadCommon = {
+      title,
+      description: editDescription.trim() || null,
+      event_date: editDate,
+      event_time: hasTimes ? editTime.trim() : null,
+      event_end_time: hasTimes ? editEndTime.trim() : null,
+      category: editCategory.trim() || null,
+    };
+
+    try {
+      const lowerPayload =
+        parsedExpense === null
+          ? { ...payloadCommon, expenses: null }
+          : { ...payloadCommon, expenses: parsedExpense };
+
+      const capitalPayload =
+        parsedExpense === null
+          ? { ...payloadCommon, Expenses: null }
+          : { ...payloadCommon, Expenses: parsedExpense };
+
+      const { error: updateError } = await supabase
+        .from("events")
+        .update(lowerPayload)
+        .eq("id", id);
+
+      if (updateError) {
+        const retry = await supabase
+          .from("events")
+          .update(capitalPayload)
+          .eq("id", id);
+        if (retry.error) {
+          throw new Error(retry.error.message ?? "Failed to update event.");
+        }
+      }
+
+      const refreshed = await fetchEventById(id);
+      if (refreshed) setEvent(refreshed);
+      setEditingEvent(false);
+    } catch (e) {
+      setEventEditError((e as Error).message ?? "Failed to update event.");
+    } finally {
+      setEventEditSaving(false);
     }
   };
 
@@ -538,6 +649,155 @@ export default function EventDetailPage() {
             </p>
             {event.description && (
               <p className="mt-3 text-forest-300">{event.description}</p>
+            )}
+
+            {(event.expenses !== null && event.expenses !== undefined) && (
+              <p className="mt-3 text-sm text-forest-300">
+                <span className="text-forest-400">Expenses:</span>{" "}
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                  maximumFractionDigits: 2,
+                }).format(Number(event.expenses) || 0)}
+              </p>
+            )}
+
+            {isOfficer && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEventEditError(null);
+                    setEditingEvent((v) => !v);
+                  }}
+                  className="rounded-lg border border-forest-700 bg-forest-950/40 px-3 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800"
+                >
+                  {editingEvent ? "Close editor" : "Edit event"}
+                </button>
+              </div>
+            )}
+
+            {isOfficer && editingEvent && (
+              <div className="mt-4 space-y-3 rounded-lg border border-forest-800 bg-forest-950/40 p-4">
+                <div>
+                  <label className="block text-sm font-medium text-forest-300">
+                    Event name
+                  </label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Category
+                    </label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    >
+                      <option value="">No category</option>
+                      {eventCategories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Start time (optional)
+                    </label>
+                    <input
+                      type="time"
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      End time (optional)
+                    </label>
+                    <input
+                      type="time"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-forest-300">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-forest-300">
+                    Expenses (optional)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="1"
+                    min={0}
+                    value={editExpenses}
+                    onChange={(e) => setEditExpenses(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    placeholder="e.g. 500"
+                  />
+                </div>
+
+                {eventEditError && (
+                  <p className="text-sm text-red-400">{eventEditError}</p>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveEventEdits}
+                    disabled={eventEditSaving}
+                    className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-brand-400 disabled:opacity-60"
+                  >
+                    {eventEditSaving ? "Saving…" : "Save changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingEvent(false)}
+                    disabled={eventEditSaving}
+                    className="rounded-lg border border-forest-700 bg-forest-950/40 px-4 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
 
             <div className="mt-6 flex items-center gap-2 text-forest-300">
