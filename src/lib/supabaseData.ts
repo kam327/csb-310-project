@@ -579,6 +579,113 @@ export async function fetchSurveyResponses(
   return (data ?? []).map(toSurveyResponse);
 }
 
+/** Average rating (1–5) per event, using each event’s latest survey only. */
+export interface FeedbackAverageByEvent {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  avgRating: number;
+  responseCount: number;
+}
+
+export async function fetchFeedbackAveragesByEvent(
+  clubId: string | null
+): Promise<FeedbackAverageByEvent[]> {
+  if (!clubId) return [];
+  const { data: eventRows, error: evErr } = await supabase
+    .from("events")
+    .select("id, title, event_date")
+    .eq("club_id", clubId);
+  if (evErr) {
+    console.error("[Gauge] fetchFeedbackAveragesByEvent events", evErr);
+    return [];
+  }
+  const eventMeta = new Map<
+    string,
+    { title: string; date: string }
+  >();
+  for (const r of eventRows ?? []) {
+    const dateStr = r.event_date
+      ? String(r.event_date).slice(0, 10)
+      : "";
+    eventMeta.set(r.id, {
+      title: r.title ?? "",
+      date: dateStr,
+    });
+  }
+  const eventIds = Array.from(eventMeta.keys());
+  if (eventIds.length === 0) return [];
+
+  const { data: surveys, error: sErr } = await supabase
+    .from("feedback_surveys")
+    .select("id, event_id, created_at")
+    .in("event_id", eventIds)
+    .order("created_at", { ascending: false });
+  if (sErr) {
+    console.error("[Gauge] fetchFeedbackAveragesByEvent surveys", sErr);
+    return [];
+  }
+  const latestSurveyByEvent = new Map<string, string>();
+  for (const s of surveys ?? []) {
+    if (!latestSurveyByEvent.has(s.event_id)) {
+      latestSurveyByEvent.set(s.event_id, s.id);
+    }
+  }
+  const surveyIds = Array.from(latestSurveyByEvent.values());
+  if (surveyIds.length === 0) return [];
+
+  const { data: responses, error: rErr } = await supabase
+    .from("survey_responses")
+    .select("survey_id, rating")
+    .in("survey_id", surveyIds);
+  if (rErr) {
+    console.error("[Gauge] fetchFeedbackAveragesByEvent responses", rErr);
+    return [];
+  }
+
+  const surveyToEvent = new Map<string, string>();
+  latestSurveyByEvent.forEach((sid, eid) => surveyToEvent.set(sid, eid));
+
+  const agg = new Map<string, { sum: number; count: number }>();
+  for (const row of responses ?? []) {
+    const eid = surveyToEvent.get(row.survey_id);
+    if (!eid) continue;
+    const cur = agg.get(eid) ?? { sum: 0, count: 0 };
+    cur.sum += row.rating;
+    cur.count += 1;
+    agg.set(eid, cur);
+  }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const out: FeedbackAverageByEvent[] = [];
+  Array.from(agg.entries()).forEach(([eid, { sum, count }]) => {
+    if (count === 0) return;
+    const meta = eventMeta.get(eid);
+    if (!meta) return;
+    if (meta.date) {
+      const eventDay = new Date(`${meta.date}T12:00:00`);
+      if (eventDay >= todayStart) return;
+    }
+    out.push({
+      eventId: eid,
+      eventName: meta.title,
+      eventDate: meta.date,
+      avgRating: sum / count,
+      responseCount: count,
+    });
+  });
+
+  out.sort((a, b) => {
+    const ta = a.eventDate ? new Date(a.eventDate).getTime() : 0;
+    const tb = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+    return tb - ta;
+  });
+
+  return out.slice(0, 10);
+}
+
 /* ─── Event Categories ─── */
 
 export interface EventCategory {

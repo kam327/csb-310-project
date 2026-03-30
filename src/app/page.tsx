@@ -15,7 +15,10 @@ import {
   fetchClub,
   fetchClubUsers,
   fetchCriticalActionItems,
+  fetchFeedbackAveragesByEvent,
+  type FeedbackAverageByEvent,
 } from "@/lib/supabaseData";
+import { FeedbackScoresByEventChart } from "@/components/FeedbackScoresByEventChart";
 
 export default function HomePage() {
   const { profile } = useAuth();
@@ -27,6 +30,7 @@ export default function HomePage() {
   const [clubUsers, setClubUsers] = useState<
     { id: string; role: string | null; display_name: string | null; email: string | null }[]
   >([]);
+  const [feedbackByEvent, setFeedbackByEvent] = useState<FeedbackAverageByEvent[]>([]);
 
   useEffect(() => {
     if (profile?.club_id) {
@@ -36,13 +40,15 @@ export default function HomePage() {
         fetchClub(profile.club_id),
         fetchClubUsers(profile.club_id),
         fetchCriticalActionItems(profile.club_id),
-      ]).then(([evs, cis, club, users, tasks]) => {
+        fetchFeedbackAveragesByEvent(profile.club_id),
+      ]).then(([evs, cis, club, users, tasks, feedback]) => {
         setEvents(evs);
         setCheckIns(cis);
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
         setClubUsers(users ?? []);
         setOpenTasksCount(tasks.filter((t) => !t.completed).length);
+        setFeedbackByEvent(feedback);
       });
     } else {
       setEvents([]);
@@ -51,6 +57,7 @@ export default function HomePage() {
       setClubName(null);
       setClubUsers([]);
       setOpenTasksCount(0);
+      setFeedbackByEvent([]);
     }
   }, [profile?.club_id]);
 
@@ -176,6 +183,17 @@ export default function HomePage() {
           {events.filter((e) => new Date(e.date) < now).length === 0 && (
             <p className="mt-4 text-forest-400">No past events yet. Create events and check-ins to see attendance by event.</p>
           )}
+        </div>
+        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Average feedback score by event (last 10 with responses)
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            1–5 scale from survey ratings; one bar per event (latest survey per event)
+          </p>
+          <div className="mt-4 min-h-[200px]">
+            <FeedbackScoresByEventChart rows={feedbackByEvent} />
+          </div>
         </div>
       </section>
 
