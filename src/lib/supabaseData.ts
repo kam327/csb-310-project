@@ -100,10 +100,16 @@ export async function fetchEventExpensesForClub(
 
   const toExpenseMap = (rows: unknown): Record<string, number> => {
     const out: Record<string, number> = {};
-    const list = (rows ?? []) as Array<{ id?: string; expenses?: unknown }>;
+    const list = (rows ?? []) as Array<{
+      id?: string;
+      expenses?: unknown;
+      Expenses?: unknown;
+    }>;
     for (const r of list) {
       if (!r?.id) continue;
-      const n = r.expenses === null || r.expenses === undefined ? null : Number(r.expenses);
+      const raw =
+        r.expenses === null || r.expenses === undefined ? r.Expenses : r.expenses;
+      const n = raw === null || raw === undefined ? null : Number(raw);
       if (n !== null && Number.isFinite(n)) out[r.id] = n;
     }
     return out;
@@ -113,7 +119,7 @@ export async function fetchEventExpensesForClub(
   // because some deployments end up with only that column populated.
   const { data: rowsCapital, error: errCapital } = await supabase
     .from("events")
-    .select('id, "Expenses" as expenses')
+    .select('id, "Expenses"')
     .eq("club_id", clubId);
 
   if (!errCapital) {
@@ -126,7 +132,10 @@ export async function fetchEventExpensesForClub(
     .eq("club_id", clubId);
 
   if (errLower) {
-    console.error("[Gauge] fetchEventExpensesForClub", errCapital ?? errLower);
+    console.error(
+      "[Gauge] fetchEventExpensesForClub failed (no expenses column matched)",
+      { errCapital, errLower }
+    );
     return {};
   }
 
