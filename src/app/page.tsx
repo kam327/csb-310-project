@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Calendar, Users, CheckSquare, TrendingUp, ArrowRight } from "lucide-react";
-import type { Event, CheckIn } from "@/types";
+import type { Event, CheckIn, Member } from "@/types";
 import { EngagementTrendChart } from "@/components/EngagementTrendChart";
 import { EventAttendanceChart } from "@/components/EventAttendanceChart";
 import { DayOfWeekHeatmap } from "@/components/DayOfWeekHeatmap";
@@ -16,9 +16,12 @@ import {
   fetchClubUsers,
   fetchCriticalActionItems,
   fetchFeedbackAveragesByEvent,
+  enrichMembersWithOfficers,
   type FeedbackAverageByEvent,
 } from "@/lib/supabaseData";
 import { FeedbackScoresByEventChart } from "@/components/FeedbackScoresByEventChart";
+import { CostPerAttendeeChart } from "@/components/CostPerAttendeeChart";
+import { MemberEngagementPieChart } from "@/components/MemberEngagementPieChart";
 
 export default function HomePage() {
   const { profile } = useAuth();
@@ -27,6 +30,7 @@ export default function HomePage() {
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [membersCount, setMembersCount] = useState(0);
   const [clubName, setClubName] = useState<string | null>(null);
+  const [showDashboardTrends, setShowDashboardTrends] = useState(true);
   const [clubUsers, setClubUsers] = useState<
     { id: string; role: string | null; display_name: string | null; email: string | null }[]
   >([]);
@@ -46,6 +50,7 @@ export default function HomePage() {
         setCheckIns(cis);
         setMembersCount(membersFromCheckIns(cis).length);
         setClubName(club?.name ?? null);
+        setShowDashboardTrends(club?.show_dashboard_trends ?? true);
         setClubUsers(users ?? []);
         setOpenTasksCount(tasks.filter((t) => !t.completed).length);
         setFeedbackByEvent(feedback);
@@ -58,6 +63,7 @@ export default function HomePage() {
       setClubUsers([]);
       setOpenTasksCount(0);
       setFeedbackByEvent([]);
+      setShowDashboardTrends(false);
     }
   }, [profile?.club_id]);
 
@@ -71,6 +77,11 @@ export default function HomePage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 3);
   const totalCheckIns = checkIns.length;
+
+  const membersForEngagement: Member[] = useMemo(
+    () => enrichMembersWithOfficers(membersFromCheckIns(checkIns), clubUsers),
+    [checkIns, clubUsers]
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -147,8 +158,26 @@ export default function HomePage() {
         />
       </div>
 
-      <section className="mt-10">
-        <h2 className="mb-4 text-lg font-semibold text-white">Trends</h2>
+      {showDashboardTrends && (
+        <section className="mt-10">
+          <h2 className="mb-4 text-lg font-semibold text-white">Trends</h2>
+        <div className="mb-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
+            Members by engagement
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            Roster includes everyone who has checked in, plus officers with
+            accounts. Share of events attended is measured against events in
+            the selected window (up to today).
+          </p>
+          <div className="mt-4">
+            <MemberEngagementPieChart
+              members={membersForEngagement}
+              events={events}
+              checkIns={checkIns}
+            />
+          </div>
+        </div>
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
             <h3 className="text-sm font-medium text-forest-300">
@@ -186,6 +215,17 @@ export default function HomePage() {
         </div>
         <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
           <h3 className="text-sm font-medium text-forest-300">
+            Cost per attendee (last 10 past events)
+          </h3>
+          <p className="mt-1 text-xs text-forest-400">
+            Event expense ÷ number of check-ins (same events as attendance chart)
+          </p>
+          <div className="mt-4 min-h-[200px]">
+            <CostPerAttendeeChart events={events} checkIns={checkIns} />
+          </div>
+        </div>
+        <div className="mt-6 rounded-xl border border-forest-800 bg-forest-900/80 p-6">
+          <h3 className="text-sm font-medium text-forest-300">
             Average feedback score by event (last 10 with responses)
           </h3>
           <p className="mt-1 text-xs text-forest-400">
@@ -195,7 +235,8 @@ export default function HomePage() {
             <FeedbackScoresByEventChart rows={feedbackByEvent} />
           </div>
         </div>
-      </section>
+        </section>
+      )}
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">

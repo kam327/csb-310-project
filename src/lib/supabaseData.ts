@@ -12,6 +12,8 @@ function toEvent(row: {
   event_time: string | null;
   event_end_time: string | null;
   category: string | null;
+  expenses?: number | null;
+  Expenses?: number | null;
   created_at: string | null;
 }): Event {
   const date = row.event_date
@@ -19,6 +21,12 @@ function toEvent(row: {
     : new Date().toISOString().slice(0, 10);
   const time = row.event_time ? String(row.event_time).slice(0, 5) : undefined;
   const endTime = row.event_end_time ? String(row.event_end_time).slice(0, 5) : undefined;
+  const rawExpense = row.expenses ?? row.Expenses;
+  let expenses: number | undefined;
+  if (rawExpense !== null && rawExpense !== undefined) {
+    const n = Number(rawExpense);
+    if (Number.isFinite(n)) expenses = n;
+  }
   return {
     id: row.id,
     name: row.title ?? "",
@@ -27,6 +35,7 @@ function toEvent(row: {
     endTime,
     description: row.description ?? undefined,
     category: row.category ?? undefined,
+    expenses,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
@@ -53,7 +62,9 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
   if (!clubId) return [];
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
+    .select(
+      "id, title, description, event_date, event_time, event_end_time, category, expenses, created_at"
+    )
     .eq("club_id", clubId)
     .order("event_date", { ascending: false });
   if (error) {
@@ -67,7 +78,9 @@ export async function fetchEvents(clubId: string | null): Promise<Event[]> {
 export async function fetchEventById(eventId: string): Promise<Event | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, event_date, event_time, event_end_time, category, created_at")
+    .select(
+      "id, title, description, event_date, event_time, event_end_time, category, expenses, created_at"
+    )
     .eq("id", eventId)
     .single();
   if (error || !data) return null;
@@ -238,6 +251,7 @@ export interface ClubSummary {
   action_reminder_days: number | null;
   join_code: string | null;
   tracks_dues: boolean;
+  show_dashboard_trends: boolean;
 }
 
 export interface ClubUserProfile {
@@ -254,7 +268,9 @@ export async function fetchClub(
   if (!clubId) return null;
   const { data, error } = await supabase
     .from("clubs")
-    .select("id, name, university_name, action_reminder_days, join_code, tracks_dues")
+    .select(
+      "id, name, university_name, action_reminder_days, join_code, tracks_dues, show_dashboard_trends"
+    )
     .eq("id", clubId)
     .single();
   if (error || !data) {

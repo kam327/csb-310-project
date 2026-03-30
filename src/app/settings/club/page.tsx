@@ -23,6 +23,7 @@ export default function ClubSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [reminderDays, setReminderDays] = useState<string>("");
   const [tracksDues, setTracksDues] = useState(false);
+  const [showDashboardTrends, setShowDashboardTrends] = useState(true);
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
@@ -51,6 +52,7 @@ export default function ClubSettingsPage() {
             setReminderDays(String(c.action_reminder_days));
           }
           setTracksDues(c?.tracks_dues ?? false);
+          setShowDashboardTrends(c?.show_dashboard_trends ?? true);
         }
       })
       .catch((err) => {
@@ -123,12 +125,21 @@ export default function ClubSettingsPage() {
     try {
       const { error: updateError } = await supabase
         .from("clubs")
-        .update({ action_reminder_days: days, tracks_dues: tracksDues })
+        .update({
+          action_reminder_days: days,
+          tracks_dues: tracksDues,
+          show_dashboard_trends: showDashboardTrends,
+        })
         .eq("id", club.id);
       if (updateError) {
         setError(updateError.message ?? "Failed to save settings.");
       } else {
-        setClub({ ...club, action_reminder_days: days, tracks_dues: tracksDues });
+        setClub({
+          ...club,
+          action_reminder_days: days,
+          tracks_dues: tracksDues,
+          show_dashboard_trends: showDashboardTrends,
+        });
       }
     } catch (e) {
       setError((e as Error).message ?? "Failed to save settings.");
@@ -223,6 +234,38 @@ export default function ClubSettingsPage() {
             </button>
             <span className="text-sm text-forest-300">
               {tracksDues ? "Dues tracking enabled" : "Dues tracking disabled"}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-forest-800 bg-forest-900/80 p-5">
+          <h2 className="text-sm font-medium text-forest-300">
+            Dashboard trends
+          </h2>
+          <p className="mt-1 text-xs text-forest-400">
+            When enabled, your dashboard&apos;s Trends section will show charts
+            like check-in, attendance, feedback, and engagement.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showDashboardTrends}
+              onClick={() => setShowDashboardTrends((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                showDashboardTrends ? "bg-gauge-500" : "bg-forest-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  showDashboardTrends ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm text-forest-300">
+              {showDashboardTrends
+                ? "Dashboard trends enabled"
+                : "Dashboard trends disabled"}
             </span>
           </div>
         </div>

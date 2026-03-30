@@ -6,6 +6,8 @@ export interface Event {
   endTime?: string; // optional end time, "HH:MM" (24h) local
   description?: string;
   category?: string;
+  /** Total event cost from DB (e.g. `expenses` column); used for cost-per-attendee trends. */
+  expenses?: number | null;
   createdAt: string;
 }
 
