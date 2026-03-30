@@ -81,7 +81,7 @@ export async function fetchEventById(eventId: string): Promise<Event | null> {
   const { data: dataCapital, error: errCapital } = await supabase
     .from("events")
     .select(
-      'id, title, description, event_date, event_time, event_end_time, category, ("Expenses")::double precision as expenses, created_at'
+      'id, title, description, event_date, event_time, event_end_time, category, "Expenses", created_at'
     )
     .eq("id", eventId)
     .single();

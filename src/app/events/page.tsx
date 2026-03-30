@@ -105,13 +105,12 @@ export default function EventsPage() {
     try {
       const parsedExpense =
         expenses.trim() === "" ? null : Number(expenses.trim());
-      if (
-        expenses.trim() !== "" &&
-        (!Number.isFinite(parsedExpense) || parsedExpense < 0)
-      ) {
-        setSaving(false);
-        setError("Expenses must be a non-negative number (or leave it blank).");
-        return;
+      if (expenses.trim() !== "") {
+        if (parsedExpense === null || !Number.isFinite(parsedExpense) || parsedExpense < 0) {
+          setSaving(false);
+          setError("Expenses must be a non-negative number (or leave it blank).");
+          return;
+        }
       }
 
       const commonPayload = {

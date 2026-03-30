@@ -229,12 +229,11 @@ export default function EventDetailPage() {
 
     const parsedExpense =
       editExpenses.trim() === "" ? null : Number(editExpenses.trim());
-    if (
-      editExpenses.trim() !== "" &&
-      (!Number.isFinite(parsedExpense) || parsedExpense < 0)
-    ) {
-      setEventEditError("Expenses must be a non-negative number (or leave it blank).");
-      return;
+    if (editExpenses.trim() !== "") {
+      if (parsedExpense === null || !Number.isFinite(parsedExpense) || parsedExpense < 0) {
+        setEventEditError("Expenses must be a non-negative number (or leave it blank).");
+        return;
+      }
     }
 
     setEventEditSaving(true);
