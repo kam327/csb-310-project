@@ -15,6 +15,7 @@ import {
   Star,
   CheckSquare,
   Plus,
+  Pencil,
   X,
   Tag,
 } from "lucide-react";
@@ -612,13 +613,31 @@ export default function EventDetailPage() {
         {/* Right column */}
         <div className="flex flex-1 flex-col gap-6">
           <section className="rounded-xl border border-forest-800 bg-forest-900/80 p-6">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold text-white">{event.name}</h2>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <h2 className="truncate text-lg font-semibold text-white">
+                  {event.name}
+                </h2>
               {event.category && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-gauge-500/20 px-2.5 py-0.5 text-xs font-medium text-gauge-300">
                   <Tag className="h-3 w-3" />
                   {event.category}
                 </span>
+              )}
+              </div>
+              {isOfficer && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEventEditError(null);
+                    setEditingEvent(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-forest-700 bg-forest-950/40 px-3 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800"
+                  title="Edit event"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </button>
               )}
             </div>
             <p className="mt-1 text-forest-400">
@@ -651,31 +670,16 @@ export default function EventDetailPage() {
               <p className="mt-3 text-forest-300">{event.description}</p>
             )}
 
-            {(event.expenses !== null && event.expenses !== undefined) && (
-              <p className="mt-3 text-sm text-forest-300">
-                <span className="text-forest-400">Expenses:</span>{" "}
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  maximumFractionDigits: 2,
-                }).format(Number(event.expenses) || 0)}
-              </p>
-            )}
-
-            {isOfficer && (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEventEditError(null);
-                    setEditingEvent((v) => !v);
-                  }}
-                  className="rounded-lg border border-forest-700 bg-forest-950/40 px-3 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800"
-                >
-                  {editingEvent ? "Close editor" : "Edit event"}
-                </button>
-              </div>
-            )}
+            <p className="mt-3 text-sm text-forest-300">
+              <span className="text-forest-400">Expenses:</span>{" "}
+              {event.expenses === null || event.expenses === undefined
+                ? "\u2014"
+                : new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 2,
+                  }).format(Number(event.expenses) || 0)}
+            </p>
 
             {isOfficer && editingEvent && (
               <div className="mt-4 space-y-3 rounded-lg border border-forest-800 bg-forest-950/40 p-4">
