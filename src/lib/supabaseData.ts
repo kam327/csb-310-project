@@ -656,18 +656,21 @@ export async function fetchFeedbackAveragesByEvent(
     agg.set(eid, cur);
   }
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  /** YYYY-MM-DD in local time — only exclude future-dated events (include today). */
+  const todayYmd = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
 
   const out: FeedbackAverageByEvent[] = [];
   Array.from(agg.entries()).forEach(([eid, { sum, count }]) => {
     if (count === 0) return;
     const meta = eventMeta.get(eid);
     if (!meta) return;
-    if (meta.date) {
-      const eventDay = new Date(`${meta.date}T12:00:00`);
-      if (eventDay >= todayStart) return;
-    }
+    if (meta.date && meta.date > todayYmd) return;
     out.push({
       eventId: eid,
       eventName: meta.title,
