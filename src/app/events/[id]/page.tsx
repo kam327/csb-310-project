@@ -19,7 +19,7 @@ import {
   X,
   Tag,
 } from "lucide-react";
-import type { Event, CheckIn, FeedbackSurvey } from "@/types";
+import type { Event, CheckIn, FeedbackSurvey, EventLinks } from "@/types";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -33,10 +33,14 @@ import {
   toggleCriticalActionItemCompleted,
   fetchClubUsers,
   fetchEventCategories,
+  fetchEventLinks,
+  upsertEventLinks,
   type CriticalActionItem,
   type ClubUserProfile,
   type EventCategory,
 } from "@/lib/supabaseData";
+
+
 
 const BASE_URL_KEY = "gauge-checkin-base-url";
 
@@ -48,7 +52,6 @@ interface TaskDraft {
   saving: boolean;
   error: string | null;
 }
-
 function makeKey() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -97,6 +100,13 @@ export default function EventDetailPage() {
   const [tasks, setTasks] = useState<CriticalActionItem[]>([]);
   const [users, setUsers] = useState<ClubUserProfile[]>([]);
   const [drafts, setDrafts] = useState<TaskDraft[]>([]);
+  const [eventLinks, setEventLinks] = useState<EventLinks | null>(null);
+  const [editingLinks, setEditingLinks] = useState(false);
+  const [flyersLink, setFlyersLink] = useState("");
+  const [budgetLink, setBudgetLink] = useState("");
+  const [otherLink, setOtherLink] = useState("");
+  const [linksSaving, setLinksSaving] = useState(false);
+  const [linksError, setLinksError] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
 
@@ -108,11 +118,13 @@ export default function EventDetailPage() {
       fetchEventById(id),
       fetchAttendanceForEvent(id),
       fetchSurveyForEvent(id),
-    ]).then(([e, cis, s]) => {
+      fetchEventLinks(id),
+    ]).then(([e, cis, s, links]) => {
       if (!cancelled) {
         setEvent(e ?? null);
         setCheckIns(cis);
         setSurvey(s);
+        setEventLinks(links);
       }
     });
     return () => {
@@ -131,6 +143,28 @@ export default function EventDetailPage() {
     fetchEventCategories(profile.club_id).then(setEventCategories);
   }, [profile?.club_id]);
 
+  const handleSaveLinks = async () => {
+  setLinksSaving(true);
+  setLinksError(null);
+
+  const { data, error } = await upsertEventLinks({
+      eventId: id,
+      flyersLink: flyersLink.trim() || undefined,
+      budgetLink: budgetLink.trim() || undefined,
+      otherLink: otherLink.trim() || undefined,
+    });
+
+    setLinksSaving(false);
+
+    if (error) {
+      setLinksError(error);
+      return;
+    }
+
+    setEventLinks(data);
+    setEditingLinks(false);
+  };
+
   useEffect(() => {
     if (!event) return;
     if (editingEvent) return; // don't overwrite while the user is editing
@@ -148,6 +182,13 @@ export default function EventDetailPage() {
     const saved = sessionStorage.getItem(BASE_URL_KEY);
     if (saved) setBaseUrlOverride(saved);
   }, []);
+
+  useEffect(() => {
+    if (editingLinks) return;
+    setFlyersLink(eventLinks?.flyersLink ?? "");
+    setBudgetLink(eventLinks?.budgetLink ?? "");
+    setOtherLink(eventLinks?.otherLink ?? "");
+  }, [eventLinks, editingLinks]);
 
   const effectiveOrigin =
     baseUrlOverride.trim() || (typeof window !== "undefined" ? window.location.origin : "");
@@ -802,7 +843,145 @@ export default function EventDetailPage() {
                 </div>
               </div>
             )}
+            <div className="mt-6 rounded-lg border border-forest-800 bg-forest-950/40 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Event links</h3>
+                  <p className="mt-1 text-sm text-forest-400">
+                    Save important links for this event.
+                  </p>
+                </div>
+                {isOfficer && !editingLinks && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinksError(null);
+                      setEditingLinks(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-forest-700 bg-forest-950/40 px-3 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit links
+                  </button>
+                )}
+              </div>
 
+              {editingLinks ? (
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Flyers link
+                    </label>
+                    <input
+                      type="text"
+                      value={flyersLink}
+                      onChange={(e) => setFlyersLink(e.target.value)}
+                      placeholder="Paste flyer link"
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white placeholder-forest-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Budget link
+                    </label>
+                    <input
+                      type="text"
+                      value={budgetLink}
+                      onChange={(e) => setBudgetLink(e.target.value)}
+                      placeholder="Paste budget link"
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white placeholder-forest-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-forest-300">
+                      Other related link
+                    </label>
+                    <input
+                      type="text"
+                      value={otherLink}
+                      onChange={(e) => setOtherLink(e.target.value)}
+                      placeholder="Paste other related link"
+                      className="mt-1 w-full rounded-lg border border-forest-700 bg-forest-800 px-3 py-2 text-sm text-white placeholder-forest-500 focus:border-gauge-500 focus:ring-1 focus:ring-gauge-500"
+                    />
+                  </div>
+
+                  {linksError && (
+                    <p className="text-sm text-red-400">{linksError}</p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveLinks}
+                      disabled={linksSaving}
+                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-brand-400 disabled:opacity-60"
+                    >
+                      {linksSaving ? "Saving..." : "Save links"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingLinks(false)}
+                      disabled={linksSaving}
+                      className="rounded-lg border border-forest-700 bg-forest-950/40 px-4 py-2 text-sm font-semibold text-forest-200 hover:bg-forest-800 disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3 text-sm">
+                  <div>
+                    <p className="text-forest-400">Flyers link</p>
+                    {eventLinks?.flyersLink ? (
+                      <a
+                        href={eventLinks.flyersLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gauge-400 hover:text-gauge-300 break-all"
+                      >
+                        {eventLinks.flyersLink}
+                      </a>
+                    ) : (
+                      <p className="text-forest-500">No flyer link added.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-forest-400">Budget link</p>
+                    {eventLinks?.budgetLink ? (
+                      <a
+                        href={eventLinks.budgetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gauge-400 hover:text-gauge-300 break-all"
+                      >
+                        {eventLinks.budgetLink}
+                      </a>
+                    ) : (
+                      <p className="text-forest-500">No budget link added.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-forest-400">Other related link</p>
+                    {eventLinks?.otherLink ? (
+                      <a
+                        href={eventLinks.otherLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gauge-400 hover:text-gauge-300 break-all"
+                      >
+                        {eventLinks.otherLink}
+                      </a>
+                    ) : (
+                      <p className="text-forest-500">No related link added.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="mt-6 flex items-center gap-2 text-forest-300">
               <Users className="h-5 w-5" />
               <span className="font-medium text-white">

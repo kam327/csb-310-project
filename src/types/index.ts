@@ -53,3 +53,13 @@ export interface SurveyResponse {
   respondentEmail?: string;
   createdAt: string;
 }
+
+export interface EventLinks {
+  id: string;
+  eventId: string;
+  flyersLink?: string;
+  budgetLink?: string;
+  otherLink?: string;
+  createdAt: string;
+  updatedAt: string;
+}

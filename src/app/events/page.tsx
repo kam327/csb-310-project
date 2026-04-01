@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Plus, Tag, Users, QrCode } from "lucide-react";
 import Link from "next/link";
-import { Plus, QrCode, Users, Tag } from "lucide-react";
-import type { Event } from "@/types";
+import type { Event, CheckIn } from "@/types";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -43,7 +43,7 @@ export default function EventsPage() {
     setEvents(list);
     const checkIns = await fetchAttendanceForClub(profile.club_id);
     const byEvent: Record<string, number> = {};
-    checkIns.forEach((c) => {
+    checkIns.forEach((c: CheckIn) => {
       byEvent[c.eventId] = (byEvent[c.eventId] ?? 0) + 1;
     });
     setCheckInsByEvent(byEvent);

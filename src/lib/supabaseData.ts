@@ -1,7 +1,14 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import type { Event, CheckIn, Member, FeedbackSurvey, SurveyResponse } from "@/types";
+import type {
+  Event,
+  CheckIn,
+  Member,
+  FeedbackSurvey,
+  SurveyResponse,
+  EventLinks,
+} from "@/types";
 
 /** Map DB event row to app Event type */
 function toEvent(row: {
@@ -927,4 +934,69 @@ export async function deleteEventCategory(params: {
     return { error };
   }
   return { error: null };
+}
+
+function toEventLinks(row: {
+  id: string;
+  event_id: string;
+  flyers_link: string | null;
+  budget_link: string | null;
+  other_link: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}): EventLinks {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    flyersLink: row.flyers_link ?? undefined,
+    budgetLink: row.budget_link ?? undefined,
+    otherLink: row.other_link ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  };
+}
+
+export async function fetchEventLinks(eventId: string): Promise<EventLinks | null> {
+  const { data, error } = await supabase
+    .from("event_links")
+    .select("id, event_id, flyers_link, budget_link, other_link, created_at, updated_at")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Gauge] fetchEventLinks", error);
+    return null;
+  }
+
+  if (!data) return null;
+  return toEventLinks(data);
+}
+
+export async function upsertEventLinks(input: {
+  eventId: string;
+  flyersLink?: string;
+  budgetLink?: string;
+  otherLink?: string;
+}): Promise<{ data: EventLinks | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from("event_links")
+    .upsert(
+      {
+        event_id: input.eventId,
+        flyers_link: input.flyersLink || null,
+        budget_link: input.budgetLink || null,
+        other_link: input.otherLink || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "event_id" }
+    )
+    .select("id, event_id, flyers_link, budget_link, other_link, created_at, updated_at")
+    .single();
+
+  if (error) {
+    console.error("[Gauge] upsertEventLinks", error);
+    return { data: null, error: error.message };
+  }
+
+  return { data: toEventLinks(data), error: null };
 }
