@@ -322,26 +322,6 @@ async function applyClubChoice(
     }
   }
 
-  // Ensure membership row exists so we can later restrict club switching via RLS
-  // (and so joining another club adds, rather than overwrites, membership history).
-  {
-    const { error: membershipError } = await supabase
-      .from("club_memberships")
-      .upsert(
-        {
-          user_id: userId,
-          club_id: clubId,
-          role: roleToSet,
-        },
-        { onConflict: "user_id,club_id" }
-      );
-    if (membershipError) {
-      throw new Error(
-        membershipError.message ?? "Failed to add club membership."
-      );
-    }
-  }
-
   const { data: profile, error: profileError } = await supabase
     .from("users")
     .upsert(
@@ -380,6 +360,26 @@ async function applyClubChoice(
       );
     }
     throw new Error(msg);
+  }
+
+  // Create membership row after the users row exists (club_memberships.user_id
+  // has a FK to public.users.id, so the user must exist first).
+  {
+    const { error: membershipError } = await supabase
+      .from("club_memberships")
+      .upsert(
+        {
+          user_id: userId,
+          club_id: clubId,
+          role: roleToSet,
+        },
+        { onConflict: "user_id,club_id" }
+      );
+    if (membershipError) {
+      throw new Error(
+        membershipError.message ?? "Failed to add club membership."
+      );
+    }
   }
 
   return { profile: profile as Profile, joinCode: createdJoinCode };
